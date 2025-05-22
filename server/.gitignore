@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.env
+/backups
+/public/uploads
+combined.log
+error.log
