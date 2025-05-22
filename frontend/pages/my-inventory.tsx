@@ -6,6 +6,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar, Copy, Edit, MapPin, Power, Trash2 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { useQuery } from "react-query";
+import { api } from "@/lib/api";
+import BikeCardSkeleton from "@/components/BikeCardSkeleton";
+import getFileUrl from "@/lib/getFileUrl";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface Bike {
   id: string;
@@ -18,34 +24,24 @@ interface Bike {
   isActive: boolean;
 }
 
-// This would typically come from an API
-const MOCK_BIKES: Bike[] = [
-  {
-    id: "23",
-    title: "kikar",
-    location: "Chennai",
-    specifications: "Large • Size: 155-165 cm | 32 cm",
-    image:
-      "https://listnride.s3.eu-central-1.amazonaws.com/uploads/ride_image/image_file/100829/thumb_trek_emonda_sl_6_pro_2021_gris__4.jpg",
-    dailyPrice: 10,
-    weeklyPrice: 56,
-    isActive: true,
-  },
-  // Add more mock bikes as needed
-];
-
 export default function BikesPage() {
   const [search, setSearch] = useState("");
-  const [activeTab, setActiveTab] = useState("bikes");
+  const router = useRouter();
 
-  const filteredBikes = MOCK_BIKES.filter(
+  const { data: bikes = [], status } = useQuery({
+    queryKey: ["my-inventory"],
+    queryFn: () => api.get("/bikes/mine").then(({ data }) => data?.data),
+  });
+
+  const filteredBikes = bikes.filter(
     (bike) =>
-      bike.title.toLowerCase().includes(search.toLowerCase()) ||
-      bike.location.toLowerCase().includes(search.toLowerCase())
+      bike.model.toLowerCase().includes(search.toLowerCase()) ||
+      bike.category.toLowerCase().includes(search.toLowerCase())
   );
 
   const handleEdit = (id: string) => {
     console.log("Edit bike:", id);
+    router.push(`/bikes/${id}/edit`);
   };
 
   const handleToggle = (id: string) => {
@@ -65,7 +61,7 @@ export default function BikesPage() {
   };
 
   return (
-    <div className="max-w-7xl min-h-[70vh] mx-auto px-4 py-8">
+    <div className="max-w-6xl min-h-[70vh] mx-auto px-4 py-8">
       <div className="space-y-6">
         <h1 className="text-xl font-bold">My bikes and accessories</h1>
 
@@ -77,10 +73,6 @@ export default function BikesPage() {
             className="max-w-sm"
           />
           <div className="flex gap-2 ml-auto">
-            <Button variant="outline">
-              <List size={16} className="h-4 w-4 mr-3" />
-              List view
-            </Button>
             <Button>
               <Plus size={16} className="h-5 w-5 mr-3" />
               List an item
@@ -88,35 +80,40 @@ export default function BikesPage() {
           </div>
         </div>
 
-        {filteredBikes.length === 0 ? (
-          <NoBikesFound />
-        ) : (
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
-            {filteredBikes.map((bike) => (
-              <BikeCard
-                key={bike.id}
-                bike={bike}
-                onEdit={handleEdit}
-                onToggle={handleToggle}
-                onDelete={handleDelete}
-                onCopy={handleCopy}
-                onCalendar={handleCalendar}
-              />
-            ))}
-          </div>
+        {status === "loading" && (
+          <>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {[1, 2, 3, 4, 5, 6, 7, 8].map((e) => {
+                return <BikeCardSkeleton />;
+              })}
+            </div>
+          </>
+        )}
+
+        {status === "success" && (
+          <>
+            {filteredBikes.length === 0 ? (
+              <NoBikesFound />
+            ) : (
+              <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+                {filteredBikes.map((bike) => (
+                  <BikeCard
+                    key={bike.id}
+                    bike={bike}
+                    onEdit={handleEdit}
+                    onToggle={handleToggle}
+                    onDelete={handleDelete}
+                    onCopy={handleCopy}
+                    onCalendar={handleCalendar}
+                  />
+                ))}
+              </div>
+            )}
+          </>
         )}
       </div>
     </div>
   );
-}
-
-interface BikeCardProps {
-  bike: Bike;
-  onEdit: (id: string) => void;
-  onToggle: (id: string) => void;
-  onDelete: (id: string) => void;
-  onCopy: (id: string) => void;
-  onCalendar: (id: string) => void;
 }
 
 function BikeCard({
@@ -126,35 +123,44 @@ function BikeCard({
   onDelete,
   onCopy,
   onCalendar,
-}: BikeCardProps) {
+}: any) {
   return (
-    <Card className="overflow-hidden">
-      <div className="relative border-b aspect-[4/3]">
+    <Card className="overflow-hidden shadow-none">
+      <Link
+        href={`/bikes/${bike.id}`}
+        className="relative border-b flex aspect-[4/3]- h-[180px]"
+      >
         <img
-          src={bike.image}
-          alt={bike.title}
+          src={getFileUrl(bike?.images[0]?.path)}
+          alt={bike.model}
           className="object-cover w-full h-full"
         />
-      </div>
-      <CardContent className="p-4">
+      </Link>
+      <CardContent className="p-2">
         <div className="space-y-3">
           <div className="flex justify-between items-start">
-            <h3 className="font-semibold">{bike.title}</h3>
+            <Link
+              href={`/bikes/${bike.id}`}
+              className="font-semibold hover:underline hover:text-primary text-sm"
+            >
+              {bike.brand}
+            </Link>
             <div className="flex items-center gap-1">
               <MapPin className="w-4 h-4 text-muted-foreground" />
               <span className="text-sm text-muted-foreground">
-                {bike.location}
+                {bike.address?.street}
               </span>
             </div>
           </div>
 
-          <p className="text-sm text-muted-foreground">{bike.specifications}</p>
+          <div className="mt-2 text-sm text-muted-foreground line-clamp-1">
+            {bike.category} • Size: {bike.size}
+          </div>
 
-          <div className="flex justify-between items-end">
+          <div className="flex justify-between items-center">
             <div className="space-y-1">
-              <div className="font-semibold">{bike.dailyPrice} €/day</div>
-              <div className="text-sm text-muted-foreground">
-                {bike.weeklyPrice} €/week
+              <div className="font-semibold text-sm">
+                ${bike?.dailyRate}/Day
               </div>
             </div>
 

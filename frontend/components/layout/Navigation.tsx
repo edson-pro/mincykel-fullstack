@@ -56,7 +56,7 @@ function NavLinks() {
   const links = [
     { href: "/", label: "Home" },
     { href: "/search", label: "Find a bike" },
-    { href: "/faq", label: "How it works" },
+    { href: "/how-it-works", label: "How it works" },
   ];
 
   const pathname = usePathname();

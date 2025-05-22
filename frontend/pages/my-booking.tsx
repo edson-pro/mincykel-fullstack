@@ -24,70 +24,11 @@ interface Booking {
   location: string;
 }
 
-// This would typically come from an API
-const MOCK_BOOKINGS: Booking[] = [
-  {
-    id: "1",
-    title: "Mountain Bike - Trek Fuel EX 8",
-    status: "upcoming",
-    startDate: "2025-01-15",
-    endDate: "2025-01-17",
-    price: 75,
-    image:
-      "https://listnride.s3.eu-central-1.amazonaws.com/uploads/ride_image/image_file/47891/thumb_1619562446-5c6a811109d26_D419F3C4-AF0A-4657-BD42-784A87714CC2.jpg",
-    location: "Munich, Germany",
-  },
-  {
-    id: "2",
-    title: "Road Bike - Specialized Tarmac",
-    status: "completed",
-    startDate: "2024-12-20",
-    endDate: "2024-12-22",
-    price: 60,
-    image:
-      "https://listnride.s3.eu-central-1.amazonaws.com/uploads/ride_image/image_file/93159/thumb_IMG_20220409_164236.jpg",
-    location: "Berlin, Germany",
-  },
-  {
-    id: "3",
-    title: "Electric Bike - RadCity 5 Plus",
-    status: "cancelled",
-    startDate: "2024-12-10",
-    endDate: "2024-12-12",
-    price: 90,
-    image:
-      "https://listnride.s3.eu-central-1.amazonaws.com/uploads/ride_image/image_file/149054/thumb_blob.jpg",
-    location: "Hamburg, Germany",
-  },
-  {
-    id: "4",
-    title: "Hybrid Bike - Cannondale Quick",
-    status: "upcoming",
-    startDate: "2025-01-20",
-    endDate: "2025-01-22",
-    price: 45,
-    image:
-      "https://listnride.s3.eu-central-1.amazonaws.com/uploads/ride_image/image_file/60845/thumb_1621330966-WRC_ALUMINIO.jpg",
-    location: "Frankfurt, Germany",
-  },
-  {
-    id: "3",
-    title: "Electric Bike - RadCity 5 Plus",
-    status: "cancelled",
-    startDate: "2024-12-10",
-    endDate: "2024-12-12",
-    price: 90,
-    image:
-      "https://listnride.s3.eu-central-1.amazonaws.com/uploads/ride_image/image_file/149054/thumb_blob.jpg",
-    location: "Hamburg, Germany",
-  },
-];
-
 export default function BookingsPage() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
 
-  const filteredBookings = MOCK_BOOKINGS.filter((booking) => {
+  const filteredBookings = [].filter((booking) => {
     const matchesSearch =
       booking.title.toLowerCase().includes(search.toLowerCase()) ||
       booking.location.toLowerCase().includes(search.toLowerCase());
@@ -97,7 +38,7 @@ export default function BookingsPage() {
   });
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className="max-w-6xl mx-auto px-4 py-8">
       <div className="mb-8">
         <h1 className="text-xl font-bold mb-6">My Bookings</h1>
         <BookingsFilter
@@ -170,7 +111,7 @@ export function BookingCard({ booking }: BookingCardProps) {
       </CardContent>
       <CardFooter className="px-4 py-3 border-t">
         <div className="text-base font-semibold">
-          €{booking.price.toFixed(2)}
+          ${booking.price.toFixed(2)}
         </div>
       </CardFooter>
     </Card>
@@ -204,7 +145,7 @@ export function BookingsFilter({
   return (
     <div className="flex flex-col sm:flex-row gap-4">
       <div className="relative flex-1">
-        <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+        <Search className="absolute z-20 left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
         <Input
           placeholder="Search bookings..."
           value={search}

@@ -12,7 +12,6 @@ import multer from "multer";
 import { BadRequestError } from "./errors/http.errors";
 import rateLimit from "express-rate-limit";
 import logger from "./lib/logger";
-import userAddressRoutes from "./routes/user-address.routes";
 import usersRoutes from "./routes/users.routes";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
@@ -20,11 +19,14 @@ import { asyncHandler } from "./utils/async-handler";
 import { v4 as uuidv4 } from "uuid";
 import settingsRoutes from "./routes/settings.routes";
 import authRoutes from "./routes/auth.routes";
+import bikeRoutes from "./routes/bike.routes";
+import userAddressRoutes from "./routes/user-address.routes";
+import rentRoutes from "./routes/rent.routes";
 
 dotenv.config();
 
 const delayMiddleware = (_: any, __: any, next: any) => {
-  const delay = Math.floor(Math.random() * 250) + 100; // Random delay between 300ms to 1s
+  const delay = Math.floor(Math.random() * 500) + 200;
   setTimeout(() => {
     next();
   }, delay);
@@ -104,6 +106,9 @@ app.get("/", (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/users", authorization, usersRoutes);
 app.use("/api/settings", authorization, settingsRoutes);
+app.use("/api/bikes", bikeRoutes);
+app.use("/api/rent", authorization, rentRoutes);
+app.use("/api/address", authorization, userAddressRoutes);
 
 // Single endpoint for file upload
 app.post("/api/upload", upload.single("file"), (req: any, res: Response) => {

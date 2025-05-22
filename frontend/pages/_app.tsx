@@ -8,6 +8,14 @@ import { GoogleOAuthProvider } from "@react-oauth/google";
 import { Toaster } from "sonner";
 import { AuthProvider } from "@/context/auth.context";
 import { QueryClient, QueryClientProvider } from "react-query";
+import NProgress from "nprogress";
+import "nprogress/nprogress.css";
+import Router from "next/router";
+import Script from "next/script";
+
+Router.events.on("routeChangeStart", () => NProgress.start());
+Router.events.on("routeChangeComplete", () => NProgress.done());
+Router.events.on("routeChangeError", () => NProgress.done());
 
 const outfit = Outfit({
   subsets: ["latin"],

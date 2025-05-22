@@ -6,6 +6,20 @@ html {
   @apply font-sans;
 }
 
+/* app/globals.css */
+#nprogress {
+  pointer-events: none;
+}
+#nprogress .bar {
+  background: #166434 !important;
+  position: fixed;
+  z-index: 1031;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 3px;
+}
+
 @layer base {
   :root {
     --background: 0 0% 100%;

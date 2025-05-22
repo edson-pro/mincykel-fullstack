@@ -18,28 +18,16 @@ export class UserAddress extends BaseEntity {
   user: User;
 
   @Column()
-  firstName: string;
+  zipCode: string;
 
   @Column()
-  lastName: string;
+  country: string;
+
+  @Column()
+  city: string;
 
   @Column()
   street: string;
-
-  @Column()
-  district: string;
-
-  @Column()
-  sector: string;
-
-  @Column()
-  cell: string;
-
-  @Column()
-  village: string;
-
-  @Column({ nullable: true })
-  phoneNumber: string;
 
   @Column({ default: false })
   isPrimary: boolean;

@@ -1,36 +1,65 @@
-import { Info } from "lucide-react";
+import { Info, Loader2 } from "lucide-react";
 
 import React from "react";
 import { CreditCard } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { api } from "@/lib/api";
+import { useMutation, useQuery } from "react-query";
+import getFileUrl from "@/lib/getFileUrl";
+import { differenceInCalendarDays, format } from "date-fns";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 export default function Checkout() {
-  const bikeDetails = {
-    image: "https://images.unsplash.com/photo-1532298229144-0ec0c57515c7",
-    brand: "Scott",
-    model: "Genius 940",
-    type: "MTB Fullsuspension",
-    size: "175-185 cm | L",
-    pricePerDay: 44,
-    quantity: 1,
+  const searchParams = useSearchParams();
+
+  const bikeId = searchParams.get("bike");
+  const quantity = searchParams.get("quantity");
+  const startDate = searchParams.get("startDate");
+  const endDate = searchParams.get("endDate");
+
+  const dateRange = {
+    from: new Date(startDate),
+    to: new Date(endDate),
   };
 
+  const { data: bike, status } = useQuery({
+    queryKey: ["bike", bikeId],
+    queryFn: async () => {
+      const response = await api.get(`/bikes/${bikeId}`);
+      return response?.data?.data;
+    },
+  });
+
+  const days = dateRange.to
+    ? differenceInCalendarDays(dateRange.to, dateRange.from)
+    : 0;
+  const total = bike?.dailyRate * days;
+
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
+    <div className="max-w-6xl mx-auto px-4 py-8">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
         <div className="lg:col-span-2 space-y-6">
-          <OrderDetails bike={bikeDetails} />
-          <PaymentSection onPaymentSubmit={() => {}} />
+          {status === "success" && (
+            <OrderDetails bike={bike} quantity={quantity} />
+          )}
+
+          {/* <PaymentSection onPaymentSubmit={() => {}} /> */}
           <AddressSection onAddressSubmit={() => {}} />
         </div>
 
         <div>
           <OrderSummary
-            dateRange="3 Jan, 14:00 - 31 Jan, 12:00"
-            subtotal={1276.0}
-            discount={191.4}
-            serviceFee={0}
-            insurance={110.43}
-            bike={bikeDetails}
+            dateRange={`${format(dateRange.from, "dd MMM, HH:mm")} - ${format(
+              dateRange.to,
+              "dd MMM, HH:mm"
+            )}`}
+            subtotal={bike?.dailyRate}
+            discount={0}
+            bike={bike}
+            days={days}
+            total={total}
+            quantity={quantity}
           />
         </div>
       </div>
@@ -111,27 +140,16 @@ function AddressSection({ onAddressSubmit }: AddressSectionProps) {
   );
 }
 
-interface OrderDetailsProps {
-  bike: {
-    image: string;
-    brand: string;
-    model: string;
-    type: string;
-    size: string;
-    pricePerDay: number;
-    quantity: number;
-  };
-}
-function OrderDetails({ bike }: OrderDetailsProps) {
+function OrderDetails({ bike, quantity }: any) {
   return (
     <div className="border p-3 rounded-lg mb-4">
       <h2 className="text-base font-semibold mb-4">Order Details</h2>
 
       <div className="flex gap-4">
         <img
-          src={bike.image}
+          src={getFileUrl(bike?.images[0].path)}
           alt={`${bike.brand} ${bike.model}`}
-          className="w-40 h-32 object-cover rounded-lg"
+          className="w-40 h-32 border object-contain rounded-lg"
         />
 
         <div className="flex-1">
@@ -140,16 +158,16 @@ function OrderDetails({ bike }: OrderDetailsProps) {
               <h3 className="font-semibold text-[17px]">{bike.brand}</h3>
               <p className="text-gray-600">{bike.model}</p>
               <p className="text-gray-600">
-                {bike.type} - {bike.size}
+                {bike.category} - {bike.size}
               </p>
             </div>
             <div className="text-right">
-              <p className="font-semibold">{bike.pricePerDay} € / day</p>
+              <p className="font-semibold">{bike.dailyRate} $ / day</p>
             </div>
           </div>
 
           <div className="mt-2">
-            <p className="text-gray-600">Quantity: {bike.quantity}</p>
+            <p className="text-gray-600">Quantity: {quantity} Bike(s)</p>
           </div>
         </div>
       </div>
@@ -157,31 +175,31 @@ function OrderDetails({ bike }: OrderDetailsProps) {
   );
 }
 
-interface OrderSummaryProps {
-  dateRange: string;
-  subtotal: number;
-  discount: number;
-  serviceFee: number;
-  insurance: number;
-  bike: {
-    image: string;
-    brand: string;
-    model: string;
-    size: string;
-    pricePerDay: number;
-    quantity: number;
-  };
-}
-
 function OrderSummary({
   dateRange,
-  subtotal,
   discount,
-  serviceFee,
-  insurance,
   bike,
-}: OrderSummaryProps) {
-  const total = subtotal - discount + serviceFee + insurance;
+  days,
+  total,
+  quantity,
+}: any) {
+  const requestPaymentCheckoutMutation = useMutation({
+    mutationFn: async () => {
+      const { data } = await api.post("/rent/request-payment-checkout", {
+        bikeId: bike.id,
+        quantity,
+        total,
+      });
+
+      return data;
+    },
+    onSuccess: (data) => {
+      window.location.href = data.url;
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || "Something went wrong");
+    },
+  });
 
   return (
     <div className="sticky top-20 h-[600px]">
@@ -195,48 +213,46 @@ function OrderSummary({
         <div className="space-y-3 mb-6">
           <div className="flex justify-between">
             <div className="flex items-center gap-2">
+              <span>Days</span>
+              <Info className="h-4 w-4 text-gray-400" />
+            </div>
+            <span> {days} </span>
+          </div>
+          <div className="flex justify-between">
+            <div className="flex items-center gap-2">
               <span>Subtotal</span>
               <Info className="h-4 w-4 text-gray-400" />
             </div>
-            <span>{subtotal.toFixed(2)} €</span>
+            <span>$ {total} </span>
           </div>
 
           <div className="flex justify-between text-green-600">
             <div className="flex items-center gap-2">
-              <span>Discount {bike.quantity} day(s)</span>
+              <span>Discount {bike?.quantity} day(s)</span>
               <Info className="h-4 w-4" />
             </div>
-            <span>-{discount.toFixed(2)} €</span>
-          </div>
-
-          <div className="flex justify-between">
-            <div className="flex items-center gap-2">
-              <span>Service fee</span>
-              <Info className="h-4 w-4 text-gray-400" />
-            </div>
-            <span>{serviceFee.toFixed(2)} €</span>
-          </div>
-
-          <div className="flex justify-between">
-            <div className="flex items-center gap-2">
-              <span>Insurance</span>
-              <Info className="h-4 w-4 text-gray-400" />
-            </div>
-            <span>{insurance.toFixed(2)} €</span>
+            <span>$ -{discount} </span>
           </div>
         </div>
 
         <div className="border-t pt-4">
           <div className="flex justify-between font-bold text-lg mb-1">
             <span>Total amount</span>
-            <span>{total.toFixed(2)} €</span>
+            <span> $ {total?.toFixed(2)}</span>
           </div>
           <p className="text-sm text-gray-500 text-right">incl. VAT</p>
         </div>
 
-        <button className="w-full bg-primary text-white py-2 rounded-lg font-medium mt-6 hover:bg-orange-600 transition-colors">
-          Rent now
-        </button>
+        <Button
+          onClick={() => requestPaymentCheckoutMutation.mutate()}
+          disabled={requestPaymentCheckoutMutation.isLoading}
+          className="w-full bg-primary text-white py-2 rounded-lg font-medium mt-6 "
+        >
+          {requestPaymentCheckoutMutation.isLoading && (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          )}
+          Pay & Rent now
+        </Button>
 
         <p className="text-sm text-gray-500 text-center mt-4">
           By clicking "Rent now" you agree to the List'n'Ride{" "}

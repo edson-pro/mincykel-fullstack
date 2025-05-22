@@ -38,7 +38,7 @@ const Footer: React.FC = () => {
   return (
     <footer className="bg-primary border-t">
       <div className="">
-        <div className="grid  px-4 sm:px-4 lg:px-4 py-12 max-w-7xl mx-auto grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
+        <div className="grid  px-4 sm:px-4 lg:px-4 py-12 max-w-6xl mx-auto grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-12">
           <div>
             <Logo className="!text-white" />
           </div>
@@ -60,7 +60,7 @@ export default Footer;
 
 const BottomBar: React.FC = () => (
   <div className="border-t px-3 border-gray-200/20 ">
-    <div className="py-4 flex max-w-7xl mx-auto flex-wrap justify-between items-center gap-4">
+    <div className="py-4 flex max-w-6xl mx-auto flex-wrap justify-between items-center gap-4">
       <p className="text-white">© 2025 MinCykel</p>
 
       <div className="flex gap-6">

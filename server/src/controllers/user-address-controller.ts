@@ -35,14 +35,10 @@ export const createUserAddress = asyncHandler(
 
     const address = new UserAddress();
     address.user = user;
-    address.firstName = data.firstName;
-    address.lastName = data.lastName;
+    address.zipCode = data.zipCode;
+    address.country = data.country;
+    address.city = data.city;
     address.street = data.street;
-    address.district = data.district;
-    address.sector = data.sector;
-    address.cell = data.cell;
-    address.village = data.village;
-    address.phoneNumber = data.phoneNumber;
     address.isPrimary = data.isPrimary;
 
     await address.save();
@@ -79,14 +75,10 @@ export const updateUserAddress = asyncHandler(
       );
     }
 
-    address.firstName = data.firstName;
-    address.lastName = data.lastName;
+    address.zipCode = data.zipCode;
+    address.country = data.country;
+    address.city = data.city;
     address.street = data.street;
-    address.district = data.district;
-    address.sector = data.sector;
-    address.cell = data.cell;
-    address.village = data.village;
-    address.phoneNumber = data.phoneNumber;
     address.isPrimary = data.isPrimary;
 
     await address.save();
