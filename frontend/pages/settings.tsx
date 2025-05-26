@@ -12,11 +12,10 @@ export default function Settings() {
 
         <SettingsTabs activeTab={activeTab} onTabChange={setActiveTab} />
 
-        <div className="mt-6">
+        <div className="mt-6 min-h-[50vh]">
           {activeTab === "profile" && <ProfileSection />}
-          {activeTab === "account" && <AccountSection />}
-          {activeTab === "availability" && <AvailabilitySection />}
-          {activeTab === "location" && <LocationSection />}
+          {activeTab === "account_security" && <AccountSection />}
+          {activeTab === "address_book" && <AddressBookSection />}
         </div>
       </div>
     </div>
@@ -25,8 +24,8 @@ export default function Settings() {
 
 function AccountSection() {
   return (
-    <div className="space-y-8 border-b">
-      <section className="border-b pb-8">
+    <div className="space-y-8">
+      <section className="pb-8">
         <h2 className="text-base font-medium mb-4">Password</h2>
         <div className="max-w-md">
           <input
@@ -40,138 +39,6 @@ function AccountSection() {
             className="w-full px-4 p-2 border rounded-lg mb-4"
           />
           <Button>Update your password</Button>
-        </div>
-      </section>
-
-      <section>
-        <h2 className="text-base font-medium mb-4">Address</h2>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Street and Number
-            </label>
-            <input
-              type="text"
-              defaultValue="334323"
-              className="w-full px-3 text-sm p-2 border rounded-lg"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Zip Code
-            </label>
-            <input
-              type="text"
-              defaultValue="3232323"
-              className="w-full px-3 text-sm p-2 border rounded-lg"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              City
-            </label>
-            <input
-              type="text"
-              defaultValue="Chennai"
-              className="w-full px-3 text-sm p-2 border rounded-lg"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Country
-            </label>
-            <input
-              type="text"
-              defaultValue="India"
-              className="w-full px-3 text-sm p-2 border rounded-lg"
-            />
-          </div>
-        </div>
-        <div className="mt-4">
-          <Button>Update Address</Button>
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function AvailabilitySection() {
-  return (
-    <div className="space-y-8">
-      <section>
-        <h2 className="text-base font-medium mb-4">Calendar Settings</h2>
-        <div className="space-y-4">
-          <div className="flex items-center justify-between p-4 border rounded-lg">
-            <div>
-              <h3 className="font-medium text-sm mb-2">
-                Automatic Availability
-              </h3>
-              <p className="text-sm text-gray-600">
-                Automatically manage your bike's availability
-              </p>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input type="checkbox" className="sr-only peer" />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-orange-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-orange-500"></div>
-            </label>
-          </div>
-
-          <div className="flex items-center justify-between p-4 border rounded-lg">
-            <div>
-              <h3 className="font-medium text-sm mb-2">
-                Minimum Notice Period
-              </h3>
-              <p className="text-sm text-gray-600">
-                Set how much advance notice you need before a booking
-              </p>
-            </div>
-            <select className="p-2 text-sm border rounded-lg">
-              <option>6 hours</option>
-              <option>12 hours</option>
-              <option>24 hours</option>
-              <option>48 hours</option>
-            </select>
-          </div>
-        </div>
-      </section>
-
-      <section className="!mb-28">
-        <h2 className="text-base font-medium mb-4">Blocked Dates</h2>
-        <div className="border rounded-lg p-4">
-          <p className="text-gray-600 text-sm mb-4">
-            Select dates when your bikes are not available for rent
-          </p>
-          <Button>Add Blocked Dates</Button>
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function LocationSection() {
-  return (
-    <div className="space-y-8">
-      <section>
-        <h2 className="text-base font-medium mb-4">Pickup Location</h2>
-        <div className="border rounded-lg p-4">
-          <div className="flex items-start gap-3 mb-4">
-            <MapPin className="h-4 w-4 text-gray-400 mt-1" />
-            <div>
-              <h3 className="font-medium mb-2">Current Location</h3>
-              <p className="text-gray-600 text-sm">334323, Chennai, India</p>
-            </div>
-          </div>
-          <Button>Update Location</Button>
-        </div>
-      </section>
-
-      <section className="!mb-28">
-        <h2 className="text-base font-medium mb-4">Preferred Meeting Points</h2>
-        <div className="border rounded-lg p-4">
-          <p className="text-gray-600 text-sm mb-4">
-            Add locations where you prefer to meet renters for bike handover
-          </p>
-          <Button>Add Meeting Point</Button>
         </div>
       </section>
     </div>
@@ -284,17 +151,11 @@ function ProfileSection() {
   );
 }
 
-interface SettingsTabsProps {
-  activeTab: string;
-  onTabChange: (tab: string) => void;
-}
-
-function SettingsTabs({ activeTab, onTabChange }: SettingsTabsProps) {
+function SettingsTabs({ activeTab, onTabChange }: any) {
   const tabs = [
-    { id: "profile", label: "Profile" },
-    { id: "account", label: "Account" },
-    { id: "availability", label: "Availability" },
-    { id: "location", label: "Location" },
+    { id: "profile", label: "Profile Information" },
+    { id: "account_security", label: "Account security" },
+    { id: "address_book", label: "Address Book" },
   ];
 
   return (
@@ -316,4 +177,8 @@ function SettingsTabs({ activeTab, onTabChange }: SettingsTabsProps) {
       </nav>
     </div>
   );
+}
+
+function AddressBookSection() {
+  return <div>AddressBookSection</div>;
 }
