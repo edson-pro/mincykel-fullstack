@@ -19,6 +19,47 @@ html {
   width: 100%;
   height: 3px;
 }
+#nprogress .spinner {
+  display: none;
+}
+
+.accor:after {
+  content: "";
+  position: absolute;
+  width: 0;
+  height: 0;
+  margin-left: -0.8rem;
+  bottom: -0.8rem;
+  left: 58%;
+  box-sizing: border-box;
+  border-color: transparent transparent #fff #fff;
+  border-style: solid;
+  border-width: 0.4rem;
+  transform-origin: 0 0;
+  transform: rotate(-45deg);
+  box-shadow: -0.4rem 0.4rem 0.6rem 0 #c4c4c4;
+}
+.accor {
+  box-shadow: 0 0 0.5rem #c4c4c4;
+}
+@keyframes indeterminateAnimation {
+  0% {
+    transform: translateX(0) scaleX(0);
+  }
+
+  40% {
+    transform: translateX(0) scaleX(0.4);
+  }
+
+  100% {
+    transform: translateX(100%) scaleX(0.5);
+  }
+}
+
+.progress-bar-value {
+  animation: indeterminateAnimation 1s infinite linear;
+  transform-origin: 0% 50%;
+}
 
 @layer base {
   :root {

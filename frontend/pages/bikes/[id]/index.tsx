@@ -1,5 +1,12 @@
 import React, { useId, useRef, useState } from "react";
-import { ArrowRight, Award, CalendarIcon, Lock, Wrench } from "lucide-react";
+import {
+  ArrowRight,
+  Award,
+  Bike,
+  CalendarIcon,
+  Lock,
+  Wrench,
+} from "lucide-react";
 import { Star, Zap } from "lucide-react";
 import { Share, Heart } from "lucide-react";
 import { MapPin } from "lucide-react";
@@ -48,6 +55,7 @@ export const getServerSideProps = (async (context) => {
 
 export default function BikeDetails({ bike }: { bike: any }) {
   const [activeImage, setActiveImage] = useState(0);
+
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
       <div className="grid relative grid-cols-1 lg:grid-cols-6 gap-y-6 sm:gap-5">
@@ -55,7 +63,7 @@ export default function BikeDetails({ bike }: { bike: any }) {
           <img
             src={getFileUrl(bike?.images[activeImage].path)}
             alt={bike?.brand + " " + bike?.model}
-            className="w-full rounded-lg mb-4 h-[480px] object-cover"
+            className="w-full border rounded-lg mb-4 h-[480px] object-cover"
           />
           <div className="grid grid-cols-5 mb-5 gap-4">
             {bike?.images.map((image: any, index: number) => (
@@ -98,9 +106,9 @@ export default function BikeDetails({ bike }: { bike: any }) {
           />
 
           <LocationInfo
+            latitude={bike?.address?.latitude}
+            longitude={bike?.address?.longitude}
             address={bike?.address?.street + ", " + bike?.address?.city}
-            description="Exact location information is provided after the booking is confirmed."
-            mapImageUrl="https://api.mapbox.com/styles/v1/mapbox/streets-v11/static/url-https%3A%2F%2Fs3.eu-central-1.amazonaws.com%2Fcdn.listnride.com%2Fassets%2Ficons%2Fbike_map_pin_with_radius.png(11.56444441441441,48.16473351351352)/11.56444441441441,48.16473351351352,14,0,0/1280x320?logo=false&access_token=pk.eyJ1IjoibGlzdG5yaWRlIiwiYSI6ImNrcjR3bHRzMTJpdzUyd254emhua3pkdzIifQ.T8VIOZSGtvHrLPIzc9qAYw"
           />
         </div>
 
@@ -352,14 +360,10 @@ function BookingForm({ bike }: any) {
 
 interface LocationInfoProps {
   address: string;
-  description: string;
-  mapImageUrl: string;
+  latitude: number;
+  longitude: number;
 }
-function LocationInfo({
-  address,
-  description,
-  mapImageUrl,
-}: LocationInfoProps) {
+function LocationInfo({ address, latitude, longitude }: LocationInfoProps) {
   return (
     <div className="mt-8">
       <h2 className="text-lg font-semibold mb-4">Full address after booking</h2>
@@ -367,15 +371,30 @@ function LocationInfo({
         <MapPin className="h-5 w-5 text-gray-500 mt-1" />
         <div>
           <p className="font-medium">{address}</p>
-          <p className="text-gray-600 text-sm">{description}</p>
+          <p className="text-gray-600 text-sm">
+            Exact location information is provided after the booking is
+            confirmed.
+          </p>
         </div>
       </div>
-      <div className="rounded-lg mt-4 overflow-hidden">
+      <div className="rounded-lg border mt-4 relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-full flex items-center justify-center">
+          <div className="h-[200px] w-[200px] bg-primary/20 border-primary border rounded-full flex items-center justify-center">
+            <div className="h-12 w-12 shadow-lg bg-white rounded-full flex items-center justify-center">
+              <Bike className="h-6 w-6 text-primary" />
+            </div>
+          </div>
+        </div>
         <img
-          src={mapImageUrl}
-          alt="Location map"
-          className="w-full h-[300px] object-cover"
-        />
+          className="w-full h-[250px] bg-slate-200 object-cover"
+          src={`https://maps.googleapis.com/maps/api/staticmap?
+center=${latitude},${longitude}&
+zoom=14&
+size=600x400&
+maptype=roadmap&
+key=AIzaSyDmgrmJuvPpY95DES70wZfBFJMh4E-6xcc`}
+          alt={`Map at ${latitude},${longitude}`}
+        ></img>
       </div>
     </div>
   );

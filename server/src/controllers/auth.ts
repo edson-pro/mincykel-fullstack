@@ -478,6 +478,13 @@ export const changePassword = asyncHandler(
       select: ["id", "password"],
     });
 
+    if (!foundUser?.password)
+      throw new BadRequestError("User has no password", {
+        errors: {
+          currentPassword: "User has no password.",
+        },
+      });
+
     if (!foundUser) throw new NotFoundError("User not found");
 
     const isValidPassword = await bcrypt.compare(

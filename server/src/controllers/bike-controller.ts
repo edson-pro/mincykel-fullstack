@@ -38,6 +38,31 @@ export class BikeController {
     });
   }
 
+  private toRadians(degrees: number): number {
+    return degrees * (Math.PI / 180);
+  }
+
+  calculateDistance(
+    lat1: number,
+    lng1: number,
+    lat2: number,
+    lng2: number
+  ): number {
+    const R = 6371; // Earth's radius in kilometers
+    const dLat = this.toRadians(lat2 - lat1);
+    const dLng = this.toRadians(lng2 - lng1);
+
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos(this.toRadians(lat1)) *
+        Math.cos(this.toRadians(lat2)) *
+        Math.sin(dLng / 2) *
+        Math.sin(dLng / 2);
+
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c; // Distance in kilometers
+  }
+
   private format = (data: Bike) => {
     return {
       ...data,
@@ -46,12 +71,6 @@ export class BikeController {
         name: data.owner?.name,
         email: data.owner?.email,
         profileUrl: data.owner?.profileUrl,
-      },
-      address: {
-        id: data.address?.id,
-        street: data.address?.street,
-        city: data.address?.city,
-        zipCode: data.address?.zipCode,
       },
     };
   };
@@ -231,59 +250,59 @@ export class BikeController {
 
     // Destructure with defaults to avoid undefined errors
     const {
-      address = "",
-      categories = [],
-      sizes = [],
-      brands = [],
-      minPrice,
-      maxPrice,
       sortBy = "createdAt",
       sortOrder = "DESC",
+      latitude,
+      longitude,
+      category,
+      brand,
     } = searchParams;
 
-    // Dynamic WHERE clause (only applies filters if values exist)
-    const where: Record<string, any> = {};
+    const radius = 10;
 
-    // Full-text search (case-insensitive)
-    if (address) {
-      where.address = Like(`%${address}%`);
+    let query = this.repository.createQueryBuilder("bikes");
+
+    const radiusInMeters = radius * 1000;
+
+    // join address
+    query.leftJoinAndSelect("bikes.address", "address");
+
+    query = query.andWhere(
+      `(6371000 * acos(cos(radians(:lat)) * cos(radians(address.latitude)) * cos(radians(address.longitude) - radians(:lng)) + sin(radians(:lat)) * sin(radians(address.latitude)))) <= :radius`,
+      { lat: latitude, lng: longitude, radius: radiusInMeters }
+    );
+
+    if (category) {
+      query = query.andWhere("bikes.category = :category", { category });
     }
 
-    // Array filters (only if non-empty)
-    if (categories.length) where.category = In(categories);
-    if (sizes.length) where.size = In(sizes);
-    if (brands.length) where.brand = In(brands);
-
-    // Price range filter
-    if (minPrice !== undefined || maxPrice !== undefined) {
-      where.price = Between(
-        minPrice ?? 0, // Default to 0 if minPrice not provided
-        maxPrice ?? Number.MAX_SAFE_INTEGER // Default to max safe int if no maxPrice
-      );
+    if (brand) {
+      query = query.andWhere("bikes.brand = :brand", { brand });
     }
 
-    // Execute query with sorting (no pagination)
-    const bikes = await this.repository.find({
-      where,
-      order: { [sortBy]: sortOrder },
-      // Optional: Eager-load relations (e.g., brand, category)
-      relations: ["address"],
-    });
+    query = query.orderBy("bikes." + sortBy, sortOrder);
+
+    const bikes = await query.getMany();
+
+    // Calculate distances and sort by distance
+    const bikesWithDistance: any[] = bikes
+      .map((bike) => ({
+        ...bike,
+        distance: this.calculateDistance(
+          latitude,
+          longitude,
+          bike?.address?.latitude,
+          bike?.address?.longitude
+        ),
+      }))
+      .sort((a, b) => (a.distance || 0) - (b.distance || 0));
 
     return res.json({
       status: "success",
-      data: bikes,
+      data: bikesWithDistance,
       meta: {
         count: bikes.length,
         filtersApplied: {
-          address: address || null,
-          categories: categories.length ? categories : null,
-          sizes: sizes.length ? sizes : null,
-          brands: brands.length ? brands : null,
-          priceRange:
-            minPrice || maxPrice
-              ? `${minPrice ?? "Any"} - ${maxPrice ?? "Any"}`
-              : null,
           sortBy,
           sortOrder,
         },
@@ -324,6 +343,7 @@ export class BikeController {
     const bikes = await this.repository.find({
       where: { owner: { id: req.user.id } },
       relations: ["address", "owner"],
+      order: { createdAt: "DESC" },
     });
 
     return res.json({

@@ -14,6 +14,7 @@ export enum BikeStatus {
   RENTED = "rented",
   MAINTENANCE = "maintenance",
   RESERVED = "reserved",
+  UNAVAILABLE = "unavailable",
 }
 
 @Entity()

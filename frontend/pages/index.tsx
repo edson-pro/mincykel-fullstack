@@ -1,5 +1,5 @@
 import { CalendarIcon, MapPin, Search } from "lucide-react";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import {
   Carousel,
   CarouselContent,
@@ -21,74 +21,8 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import React from "react";
-import PlacesAutocomplete, {
-  geocodeByAddress,
-  getLatLng,
-} from "react-places-autocomplete";
-import Script from "next/script";
 import { cn } from "@/lib/utils";
-
-class LocationSearchInput extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { address: "" } as any;
-  }
-
-  handleChange = (address: any) => {
-    this.setState({ address });
-  };
-
-  handleSelect = (address) => {
-    geocodeByAddress(address)
-      .then((results) => getLatLng(results[0]))
-      .then((latLng) => console.log("Success", latLng))
-      .catch((error) => console.error("Error", error));
-  };
-
-  render() {
-    return (
-      <PlacesAutocomplete
-        // @ts-ignore
-        value={this.state?.address}
-        onChange={this.handleChange}
-        onSelect={this.handleSelect}
-      >
-        {({ getInputProps, suggestions, getSuggestionItemProps, loading }) => (
-          <div>
-            <input
-              {...getInputProps({
-                placeholder: "Search Places ...",
-                className: "location-search-input",
-              })}
-            />
-            <div className="autocomplete-dropdown-container">
-              {loading && <div>Loading...</div>}
-              {suggestions.map((suggestion) => {
-                const className = suggestion.active
-                  ? "suggestion-item--active"
-                  : "suggestion-item";
-                // inline style for demonstration purpose
-                const style = suggestion.active
-                  ? { backgroundColor: "#fafafa", cursor: "pointer" }
-                  : { backgroundColor: "#ffffff", cursor: "pointer" };
-                return (
-                  <div
-                    {...getSuggestionItemProps(suggestion, {
-                      className,
-                      style,
-                    })}
-                  >
-                    <span>{suggestion.description}</span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-      </PlacesAutocomplete>
-    );
-  }
-}
+import Autocomplete from "react-google-autocomplete";
 
 export default function Home() {
   return (
@@ -123,25 +57,36 @@ function SearchBar() {
     to: null,
   });
 
-  const [address, setAddress] = useState<string>("");
+  const [address, setAddress] = useState<any>({
+    formatted_address: "",
+    latitude: 0,
+    longitude: 0,
+  });
+
   const [quantity, setQuantity] = useState<any>("");
 
   return (
     <>
-      {" "}
-      {/* <Script src="https://maps.googleapis.com/maps/api/js?key=YOUR_API_KEY&libraries=places"></Script> */}
       <div className="flex flex-col sm:flex-row items-center gap-4 bg-white rounded-lg sm:rounded-full p-2 shadow-lg max-w-4xl mx-auto">
         <div className="flex-1 sm:border-l-0 sm:border-r-0 sm:rounded-none sm:border-y-0 rounded-lg text-sm sm:w-fit border w-full sm:bg-white bg-slate-100 flex items-center px-4">
           <Search className="h-5 w-5 text-gray-400" />
-          <input
-            type="text"
-            placeholder="Where do you want to go?"
+          <Autocomplete
+            apiKey={"AIzaSyDmgrmJuvPpY95DES70wZfBFJMh4E-6xcc"}
+            onPlaceSelected={(place) =>
+              setAddress({
+                formatted_address: place?.formatted_address,
+                latitude: place?.geometry?.location.lat(),
+                longitude: place?.geometry?.location.lng(),
+              })
+            }
+            options={{
+              types: ["geocode"], // Focus on geographic addresses
+              fields: ["address_components", "geometry", "formatted_address"],
+              strictBounds: false,
+            }}
             className="w-full bg-transparent p-2 focus:outline-none"
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
           />
         </div>
-        {/* <LocationSearchInput /> */}
 
         <div className="flex-1  sm:border-r-0 sm:rounded-none sm:border-y-0  rounded-lg  text-sm  sm:w-fit border sm:bg-white w-full bg-slate-100 flex items-center px-4">
           <Popover>
@@ -185,15 +130,19 @@ function SearchBar() {
         <button
           onClick={() => {
             router.push(
-              `/search?address=${address}&quantity=${quantity}&from=${date?.from}&to=${date?.to}`
+              `/search?address=${
+                address?.formatted_address
+              }&quantity=${quantity}&from=${format(
+                date?.from,
+                "yyyy-MM-dd"
+              )}&to=${format(date?.to, "yyyy-MM-dd")}&latitude=${
+                address?.latitude
+              }&longitude=${address?.longitude}`
             );
           }}
-          disabled={!address || !quantity || !date?.from || !date?.to}
           className={cn(
-            "bg-primary sm:w-fit w-full text-white px-6 py-2 rounded-full hover:bg-primary transition-colors",
-            !address || !quantity || !date?.from || !date?.to
-              ? "opacity-50 cursor-not-allowed"
-              : ""
+            "bg-primary hover:bg-[#307448] sm:w-fit w-full text-white px-6 py-2 rounded-full cursor-pointer transition-colors",
+            !address?.formatted_address ? "opacity-50 cursor-not-allowed" : ""
           )}
         >
           Search
@@ -300,30 +249,200 @@ interface City {
   country: string;
 }
 
-const cities: City[] = [
-  { name: "Berlin", country: "Germany" },
-  { name: "Amsterdam", country: "Netherlands" },
-  { name: "Barcelona", country: "Spain" },
-  { name: "Vannes", country: "France" },
-  { name: "Hamburg", country: "Germany" },
-  { name: "Motala", country: "Sweden" },
-  { name: "München", country: "Germany" },
-  { name: "Paris", country: "France" },
-  { name: "ÎLE d'ARZ", country: "France" },
-  { name: "Palma", country: "Spain" },
-  { name: "Split", country: "Croatia" },
-  { name: "Málaga", country: "Spain" },
-  { name: "Alcúdia", country: "Spain" },
-  { name: "Mauguio", country: "France" },
-  { name: "Playa Blanca", country: "Spain" },
-  { name: "San Bartolomé de Tirajana", country: "Spain" },
-  { name: "Dresden", country: "Germany" },
-  { name: "Noirmoutier-en-l'Île", country: "France" },
-  { name: "Wien", country: "Austria" },
-  { name: "Meran", country: "Italy" },
+const cities: any[] = [
+  {
+    name: "Kigali",
+    country: "Rwanda",
+    meta: {
+      formatted_address: "Kigali, Rwanda",
+      latitude: -1.9440727,
+      longitude: 30.0618851,
+    },
+  },
+  {
+    name: "Gisenyi",
+    country: "Rwanda",
+    meta: {
+      formatted_address: "Gisenyi, Rwanda",
+      latitude: -1.6990482,
+      longitude: 29.2560996,
+    },
+  },
+  {
+    name: "Amsterdam",
+    country: "Netherlands",
+    meta: {
+      formatted_address: "Amsterdam, Netherlands",
+      latitude: 52.3675734,
+      longitude: 4.9041389,
+    },
+  },
+  {
+    name: "Barcelona",
+    country: "Spain",
+    meta: {
+      formatted_address: "Barcelona, Spain",
+      latitude: 41.3873974,
+      longitude: 2.168568,
+    },
+  },
+  {
+    name: "Vannes",
+    country: "France",
+    meta: {
+      formatted_address: "Vannes, France",
+      latitude: 47.65861659999999,
+      longitude: -2.7599022,
+    },
+  },
+  {
+    name: "Hamburg",
+    country: "Germany",
+    meta: {
+      formatted_address: "Hamburg, Germany",
+      latitude: 53.5488282,
+      longitude: 9.987170299999999,
+    },
+  },
+  {
+    name: "Motala",
+    country: "Sweden",
+    meta: {
+      formatted_address: "Motala, Sweden",
+      latitude: 58.5380335,
+      longitude: 15.0470936,
+    },
+  },
+  {
+    name: "München",
+    country: "Germany",
+    meta: {
+      formatted_address: "Munich, Germany",
+      latitude: 48.1351253,
+      longitude: 11.5819806,
+    },
+  },
+  {
+    name: "Paris",
+    country: "France",
+    meta: {
+      formatted_address: "Paris, France",
+      latitude: 48.8575475,
+      longitude: 2.3513765,
+    },
+  },
+  {
+    name: "ÎLE d'ARZ",
+    country: "France",
+    meta: {
+      formatted_address: "Paris, France",
+      latitude: 48.8575475,
+      longitude: 2.3513765,
+    },
+  },
+  {
+    name: "Palma",
+    country: "Spain",
+    meta: {
+      formatted_address: "Paris, France",
+      latitude: 48.8575475,
+      longitude: 2.3513765,
+    },
+  },
+  {
+    name: "Split",
+    country: "Croatia",
+    meta: {
+      formatted_address: "Paris, France",
+      latitude: 48.8575475,
+      longitude: 2.3513765,
+    },
+  },
+  {
+    name: "Málaga",
+    country: "Spain",
+    meta: {
+      formatted_address: "Paris, France",
+      latitude: 48.8575475,
+      longitude: 2.3513765,
+    },
+  },
+  {
+    name: "Alcúdia",
+    country: "Spain",
+    meta: {
+      formatted_address: "Paris, France",
+      latitude: 48.8575475,
+      longitude: 2.3513765,
+    },
+  },
+  {
+    name: "Mauguio",
+    country: "France",
+    meta: {
+      formatted_address: "Paris, France",
+      latitude: 48.8575475,
+      longitude: 2.3513765,
+    },
+  },
+  {
+    name: "Playa Blanca",
+    country: "Spain",
+    meta: {
+      formatted_address: "Paris, France",
+      latitude: 48.8575475,
+      longitude: 2.3513765,
+    },
+  },
+  {
+    name: "San Bartolomé de Tirajana",
+    country: "Spain",
+    meta: {
+      formatted_address: "Paris, France",
+      latitude: 48.8575475,
+      longitude: 2.3513765,
+    },
+  },
+  {
+    name: "Dresden",
+    country: "Germany",
+    meta: {
+      formatted_address: "Paris, France",
+      latitude: 48.8575475,
+      longitude: 2.3513765,
+    },
+  },
+  {
+    name: "Noirmoutier-en-l'Île",
+    country: "France",
+    meta: {
+      formatted_address: "Paris, France",
+      latitude: 48.8575475,
+      longitude: 2.3513765,
+    },
+  },
+  {
+    name: "Wien",
+    country: "Austria",
+    meta: {
+      formatted_address: "Paris, France",
+      latitude: 48.8575475,
+      longitude: 2.3513765,
+    },
+  },
+  {
+    name: "Meran",
+    country: "Italy",
+    meta: {
+      formatted_address: "Paris, France",
+      latitude: 48.8575475,
+      longitude: 2.3513765,
+    },
+  },
 ];
 
 const PopularCities: React.FC = () => {
+  const router = useRouter();
   return (
     <div className="bg-gradient-to-br bg-primary py-12 sm:px-6 lg:px-8">
       <div className="max-w-6xl px-4  mx-auto">
@@ -335,6 +454,13 @@ const PopularCities: React.FC = () => {
         <div className="flex flex-wrap gap-3">
           {cities.map((city) => (
             <button
+              onClick={() => {
+                if (city.meta) {
+                  router.push(
+                    `/search?address=${city.meta.formatted_address}&latitude=${city.meta.latitude}&longitude=${city.meta.longitude}`
+                  );
+                }
+              }}
               key={city.name}
               className="inline-flex items-center px-4 py-2 bg-white rounded-md 
                          text-gray-800 hover:bg-gray-100 transition-all duration-200 

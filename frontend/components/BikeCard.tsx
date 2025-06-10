@@ -42,7 +42,7 @@ export default function BikeCard({ bike }) {
           </div>
         </CardContent>
         <CardFooter className="p-2 pt-0">
-          <div className="text-lg font-semibold">
+          <div className="text-base font-semibold">
             ${bike?.dailyRate}
             <span className="text-sm font-normal text-muted-foreground">
               /day

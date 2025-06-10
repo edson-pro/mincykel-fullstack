@@ -11,7 +11,8 @@ import { QueryClient, QueryClientProvider } from "react-query";
 import NProgress from "nprogress";
 import "nprogress/nprogress.css";
 import Router from "next/router";
-import Script from "next/script";
+
+NProgress.configure({ showSpinner: false });
 
 Router.events.on("routeChangeStart", () => NProgress.start());
 Router.events.on("routeChangeComplete", () => NProgress.done());

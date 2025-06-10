@@ -39,7 +39,12 @@ export const createUserAddress = asyncHandler(
     address.country = data.country;
     address.city = data.city;
     address.street = data.street;
+    address.firstName = data.firstName;
+    address.lastName = data.lastName;
+    address.phone = data.phone;
     address.isPrimary = data.isPrimary;
+    address.latitude = data.latitude;
+    address.longitude = data.longitude;
 
     await address.save();
 
@@ -79,7 +84,12 @@ export const updateUserAddress = asyncHandler(
     address.country = data.country;
     address.city = data.city;
     address.street = data.street;
+    address.firstName = data.firstName;
+    address.lastName = data.lastName;
+    address.phone = data.phone;
     address.isPrimary = data.isPrimary;
+    address.latitude = data.latitude;
+    address.longitude = data.longitude;
 
     await address.save();
 

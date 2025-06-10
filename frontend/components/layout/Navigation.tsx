@@ -1,9 +1,9 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import Logo from "../Logo";
 import { Button } from "../ui/button";
 import { cn } from "@/lib/utils";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -24,6 +24,7 @@ import {
   ListCheck,
   LogOut,
   Pin,
+  Search,
   User,
   UserPen,
 } from "lucide-react";
@@ -32,9 +33,32 @@ import { useAuth } from "@/context/auth.context";
 import { Skeleton } from "../ui/skeleton";
 import LogoutModal from "../modals/LogoutModal";
 import useModalState from "@/hooks/useModalState";
+import Autocomplete from "react-google-autocomplete";
 
 export default function Navigation() {
   const pathname = usePathname();
+
+  const searchParams = useSearchParams();
+
+  const [address, setAddress] = useState<any>({
+    formatted_address: "",
+    latitude: 0,
+    longitude: 0,
+  });
+
+  useEffect(() => {
+    const address = searchParams.get("address");
+    if (address) {
+      setAddress({
+        formatted_address: address,
+      });
+    }
+  }, [searchParams.get("address")]);
+
+  const router = useRouter();
+
+  console.log(address);
+
   return (
     <header className="fixed w-full top-0 z-50 bg-white border-b">
       <div
@@ -43,7 +67,54 @@ export default function Navigation() {
         })}
       >
         <div className="flex items-center justify-between h-14">
-          <Logo />
+          <div className="flex items-center gap-5">
+            <Logo />
+            {pathname === "/search" && (
+              <form
+                onSubmit={(e) => {
+                  console.log(address);
+                  e.preventDefault();
+                  if (!address?.formatted_address) {
+                    return;
+                  }
+                  router.push({
+                    pathname: "/search",
+                    query: {
+                      address: address?.formatted_address,
+                      latitude: address?.latitude,
+                      longitude: address?.longitude,
+                    },
+                  });
+                }}
+                className="bg-slate-100 focus-within:ring-primary  focus-within:ring-offset-2 focus-within:ring-2 w-[250px] flex items-center justify-between px-1 rounded-full"
+              >
+                <Autocomplete
+                  apiKey={"AIzaSyDmgrmJuvPpY95DES70wZfBFJMh4E-6xcc"}
+                  defaultValue={address?.formatted_address}
+                  onPlaceSelected={(place) => {
+                    setAddress({
+                      formatted_address: place?.formatted_address,
+                      latitude: place?.geometry?.location?.lat(),
+                      longitude: place?.geometry?.location?.lng(),
+                    });
+                  }}
+                  options={{
+                    types: ["geocode"], // Focus on geographic addresses
+                    fields: [
+                      "address_components",
+                      "geometry",
+                      "formatted_address",
+                    ],
+                    strictBounds: false,
+                  }}
+                  className="w-full pl-3 text-sm bg-transparent p-2 focus:outline-none"
+                />
+                <button className="p-2 bg-primary rounded-full flex w-8 h-8 items-center justify-center">
+                  <Search className="w-4 h-4 text-white" />
+                </button>
+              </form>
+            )}
+          </div>
           <NavLinks />
           <UserActions />
         </div>
@@ -91,8 +162,8 @@ function UserActions() {
       {loading ? (
         <>
           <div className="flex items-center gap-4">
-            <Skeleton className="w-[100px] h-8" />
-            <Skeleton className="w-8 h-8 rounded-full" />
+            <Skeleton className="w-[100px] h-8 !bg-primary/20" />
+            <Skeleton className="w-8 h-8 rounded-full !bg-primary/20" />
           </div>
         </>
       ) : (
