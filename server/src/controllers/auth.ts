@@ -452,13 +452,16 @@ export const updateProfile = asyncHandler(
 
     if (!foundUser) throw new NotFoundError("User not found");
 
-    foundUser.name = `${data.firstName} ${data.lastName}`;
-    foundUser.firstName = data.firstName;
-    foundUser.lastName = data.lastName;
-    foundUser.phone = data.phone;
-    foundUser.profileUrl = data.profileUrl;
-    foundUser.gender = data.gender;
-    foundUser.dateOfBirth = data.dateOfBirth;
+    if (data.firstName) foundUser.firstName = data.firstName;
+    if (data.lastName) foundUser.lastName = data.lastName;
+    if (data.firstName && data.lastName)
+      foundUser.name = `${data.firstName} ${data.lastName}`;
+
+    if (data.bio) foundUser.bio = data.bio;
+
+    if (data.profileUrl) {
+      foundUser.profileUrl = data.profileUrl;
+    }
 
     const updatedUser = await foundUser.save();
 

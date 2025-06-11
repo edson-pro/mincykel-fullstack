@@ -33,8 +33,6 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import categories from "@/data/categories";
 import { toast } from "sonner";
-import brands from "@/data/brands";
-import models from "@/data/models";
 import { api } from "@/lib/api";
 import { useQuery } from "react-query";
 import { useRouter } from "next/router";
@@ -52,42 +50,91 @@ const STEPS: FormStep[] = [
 
 const formSchema = z.object({
   category: z.string().min(1, "Category is required"),
+  subCategory: z.string().min(1, "Subcategory is required"),
   brand: z.string().min(1, "Brand is required"),
   model: z.string().min(1, "Model is required"),
+  accessories: z.array(z.string()),
   description: z
     .string()
     .min(100, "Description must be at least 100 characters")
     .max(1500),
   addressId: z.number().min(1, "Address is required"),
-  images: z.array(z.any()).min(1, "At least one image is required"),
-  dailyRate: z.number().min(1, "Daily price must be at least $1"),
-  dailyDiscount: z.number().min(0).max(100),
-  weeklyDiscount: z.number().min(0).max(100),
+  images: z.array(z.any()).min(2, "At least two images are required"),
+  dailyRate: z.string().min(1, "Daily price must be at least $1"),
+  dailyDiscount: z.string().min(0).max(100),
+  weeklyDiscount: z.string().min(0).max(100),
   requireDeposit: z.boolean(),
   size: z.string().min(1, "Size is required"),
 });
 
+const categorySchema = formSchema.pick({
+  category: true,
+  subCategory: true,
+  accessories: true,
+});
+
+const detailsSchema = formSchema.pick({
+  brand: true,
+  model: true,
+  description: true,
+  size: true,
+});
+
+const locationSchema = formSchema.pick({
+  addressId: true,
+});
+
+const picturesSchema = formSchema.pick({
+  images: true,
+});
+
 type FormValues = z.infer<typeof formSchema>;
 
-export default function BikeForm() {
+export default function BikeForm({ bike }: { bike: any }) {
   const [currentStep, setCurrentStep] = useState<FormStep>("category");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const schema: any = {
+    category: categorySchema,
+    details: detailsSchema,
+    location: locationSchema,
+    pricing: formSchema,
+    pictures: picturesSchema,
+  }[currentStep];
+
   const form = useForm<FormValues>({
-    resolver: zodResolver(formSchema),
-    defaultValues: {
-      category: "",
-      brand: "",
-      model: "",
-      description: "",
-      addressId: undefined,
-      images: [],
-      dailyRate: 0,
-      dailyDiscount: 0,
-      weeklyDiscount: 0,
-      requireDeposit: false,
-      size: "",
-    },
+    resolver: zodResolver(schema),
+    values: bike
+      ? {
+          category: bike?.category,
+          subCategory: bike?.subCategory,
+          accessories: bike?.accessories || [],
+          brand: bike?.brand,
+          model: bike?.model,
+          description: bike?.description,
+          addressId: bike?.address?.id,
+          images: bike?.images,
+          dailyRate: bike?.dailyRate,
+          dailyDiscount: bike?.dailyDiscount || "0",
+          weeklyDiscount: bike?.weeklyDiscount || "0",
+          requireDeposit: bike?.requireDeposit,
+          size: bike?.size,
+        }
+      : {
+          category: "",
+          subCategory: "",
+          accessories: [],
+          brand: "",
+          model: "",
+          description: "",
+          addressId: undefined,
+          images: [],
+          dailyRate: "0",
+          dailyDiscount: "0",
+          weeklyDiscount: "0",
+          requireDeposit: false,
+          size: "",
+        },
     mode: "onChange",
   });
 
@@ -95,14 +142,9 @@ export default function BikeForm() {
 
   const goToNextStep = async () => {
     // Validate current step before proceeding
-    const fieldsToValidate = getFieldsForStep(currentStep);
-    const isValid = await form.trigger(fieldsToValidate as any);
-
-    if (isValid) {
-      const nextIndex = currentStepIndex + 1;
-      if (nextIndex < STEPS.length) {
-        setCurrentStep(STEPS[nextIndex]);
-      }
+    const isStepValid = await form.trigger();
+    if (isStepValid) {
+      setCurrentStep((prev) => STEPS[STEPS.indexOf(prev) + 1]);
     }
   };
 
@@ -113,32 +155,15 @@ export default function BikeForm() {
     }
   };
 
-  const getFieldsForStep = (step: FormStep): (keyof FormValues)[] => {
-    switch (step) {
-      case "category":
-        return ["category"];
-      case "details":
-        return ["brand", "model", "description", "size"];
-      case "pictures":
-        return ["images"];
-      case "location":
-        return ["addressId"];
-      case "pricing":
-        return ["dailyRate"];
-      default:
-        return [];
-    }
-  };
-
   const router = useRouter();
 
   const onSubmit: SubmitHandler<FormValues> = async (data) => {
     setIsSubmitting(true);
     try {
       // Upload images first
-      const uploadedImages = data.images.map((image) => {
+      const uploadedImages = data?.images?.map((image) => {
         return {
-          path: image.s3Key,
+          path: image.s3Key || image?.path,
           isMain: image.isMain,
         };
       });
@@ -148,11 +173,17 @@ export default function BikeForm() {
         images: uploadedImages,
       };
 
-      const { data: bike } = await api.post("/bikes", formData);
+      let bikeData;
+
+      if (bike?.id) {
+        bikeData = await api.put(`/bikes/${bike?.id}`, formData);
+      } else {
+        bikeData = await api.post("/bikes", formData);
+      }
 
       toast.success("Listing submitted successfully!");
 
-      router.push(`/bikes/${bike?.data?.id}`);
+      router.push(`/bikes/${bikeData?.data?.data?.id}`);
     } catch (error) {
       console.error("Error submitting form:", error);
       toast.error("Failed to submit listing. Please try again.");
@@ -160,8 +191,6 @@ export default function BikeForm() {
       setIsSubmitting(false);
     }
   };
-
-  console.log(form.formState.errors);
 
   return (
     <div className="max-w-6xl min-h-[70vh] mt-4 mx-auto px-4 py-5">
@@ -259,28 +288,38 @@ export default function BikeForm() {
   );
 }
 
+import { cn } from "@/lib/utils";
+import AddressForm from "./AddressForm";
+import getFileUrl from "@/lib/getFileUrl";
+import accessories from "@/data/accessories";
+
 function CategoryStep({ form, onNext }: { form: any; onNext: () => void }) {
   return (
     <div className="space-y-6 max-w-lg">
       <div>
         <h2 className="text-[17px] font-bold mb-2">What type of bike is it?</h2>
         <p className="text-gray-600 text-sm mb-6">
-          First, select the category of your bike. Then select the right
+          First, select the category of your bike. Then select the bottom
           subcategory.
         </p>
         <div className="grid gap-4">
           <FormField
             control={form.control}
             name="category"
-            render={({ field }) => (
+            render={({ field, fieldState }) => (
               <FormItem>
                 <FormLabel>Choose the category of your bike</FormLabel>
                 <Select
-                  onValueChange={field.onChange}
+                  onValueChange={(e) => {
+                    field.onChange(e);
+                  }}
                   defaultValue={field.value}
                 >
                   <FormControl>
-                    <SelectTrigger className="mt-1.5">
+                    <SelectTrigger
+                      error={fieldState.error?.message}
+                      className="mt-1.5"
+                    >
                       <SelectValue placeholder="Select the bike category" />
                     </SelectTrigger>
                   </FormControl>
@@ -296,14 +335,110 @@ function CategoryStep({ form, onNext }: { form: any; onNext: () => void }) {
               </FormItem>
             )}
           />
+          <FormField
+            control={form.control}
+            name="subCategory"
+            render={({ field, fieldState }) => (
+              <FormItem>
+                <FormLabel>Choose the subcategory of your bike</FormLabel>
+                <Select
+                  disabled={!form.watch("category")}
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                >
+                  <FormControl>
+                    <SelectTrigger
+                      error={fieldState.error?.message}
+                      className="mt-1.5"
+                    >
+                      <SelectValue placeholder="Select the bike subcategory" />
+                    </SelectTrigger>
+                  </FormControl>
+                  <SelectContent>
+                    {categories
+                      .find(
+                        (category) => category.value === form.watch("category")
+                      )
+                      ?.children?.map((subcategory) => (
+                        <SelectItem
+                          key={subcategory.value}
+                          value={subcategory.value}
+                        >
+                          {subcategory.label}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+                <FormMessage />
+              </FormItem>
+            )}
+          />
+
+          <div className="w-full max-w-2xl mx-auto mt-3">
+            <h2 className="text-sm font-medium mb-4 text-gray-900">
+              What free accessories do you provide with the bike?
+            </h2>
+
+            <div className="grid grid-cols-3 gap-4">
+              {accessories.map((accessory) => {
+                const IconComponent = accessory.icon;
+                const isSelected = form
+                  .watch("accessories")
+                  .find((accessoryName) => accessoryName === accessory.name);
+
+                return (
+                  <div
+                    key={accessory.name}
+                    className={`flex items-center border gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all ${
+                      isSelected ? "bg-primary text-white" : "hover:bg-gray-50"
+                    }`}
+                    onClick={() => {
+                      const newValues = isSelected
+                        ? form
+                            .watch("accessories")
+                            .filter(
+                              (accessoryName) =>
+                                accessoryName !== accessory.name
+                            )
+                        : [...form.watch("accessories"), accessory.name];
+
+                      form.setValue("accessories", newValues);
+                    }}
+                  >
+                    <div
+                      className={`w-8 h-8 rounded-full border-2 flex items-center justify-center ${
+                        isSelected
+                          ? "border-white bg-white/20"
+                          : "border-gray-300"
+                      }`}
+                    >
+                      <IconComponent
+                        className={`w-4 h-4 ${
+                          isSelected ? "text-white" : "text-gray-600"
+                        }`}
+                      />
+                    </div>
+                    <span
+                      className={`text-sm font-medium ${
+                        isSelected ? "text-white" : "text-gray-900"
+                      }`}
+                    >
+                      {accessory.name}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
         </div>
       </div>
 
       <div className="flex justify-end">
         <Button
           type="button"
-          onClick={onNext}
-          disabled={!form.watch("category") || form.formState.errors.category}
+          onClick={() => {
+            onNext();
+          }}
         >
           Next
         </Button>
@@ -344,21 +479,11 @@ function DetailsStep({
               <FormItem>
                 <FormLabel>Brand *</FormLabel>
                 <FormControl>
-                  <Select
-                    onValueChange={field.onChange}
-                    defaultValue={field.value}
-                  >
-                    <SelectTrigger className="mt-1.5">
-                      <SelectValue placeholder="Select the bike brand" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {brands.map((brand) => (
-                        <SelectItem key={brand.value} value={brand.value}>
-                          {brand.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                  <Input
+                    placeholder="Brand"
+                    value={field.value}
+                    onChange={(e) => field.onChange(e.target.value)}
+                  />
                 </FormControl>
                 <FormMessage />
               </FormItem>
@@ -369,27 +494,17 @@ function DetailsStep({
             <FormField
               control={form.control}
               name="model"
-              render={({ field }) => (
+              render={({ field, fieldState }) => (
                 <FormItem>
                   <FormLabel>Model *</FormLabel>
                   <FormControl>
-                    <Select
-                      onValueChange={field.onChange}
-                      defaultValue={field.value}
-                    >
-                      <SelectTrigger className="mt-1.5">
-                        <SelectValue placeholder="Select the bike model" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {models.map((model) => (
-                          <SelectItem key={model.value} value={model.value}>
-                            {model.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Input
+                      error={fieldState.error?.message}
+                      placeholder="Model"
+                      value={field.value}
+                      onChange={(e) => field.onChange(e.target.value)}
+                    />
                   </FormControl>
-                  <FormMessage />
                 </FormItem>
               )}
             />
@@ -455,12 +570,9 @@ function DetailsStep({
         </Button>
         <Button
           type="button"
-          onClick={onNext}
-          disabled={
-            !form.watch("brand") ||
-            !form.watch("model") ||
-            form.watch("description").length < 100
-          }
+          onClick={() => {
+            onNext();
+          }}
         >
           Next
         </Button>
@@ -478,17 +590,30 @@ function LocationStep({
   onNext: () => void;
   onBack: () => void;
 }) {
-  const { data: addresses, status } = useQuery({
+  const {
+    data: addresses,
+    status,
+    refetch,
+  } = useQuery({
     queryKey: ["address"],
     queryFn: () => api.get("/address").then((res) => res.data),
   });
+
+  const [showForm, setShowForm] = useState(false);
+  const [editingAddress, setEditingAddress] = useState<any | null>(null);
+
+  const handleCancel = () => {
+    setShowForm(false);
+    setEditingAddress(null);
+  };
+
   return (
     <div className="space-y-6 max-w-lg">
       <div>
         <h2 className="text-[17px] font-bold mb-4">
           Where can the bike be picked up?
         </h2>
-        <p className="text-gray-600 text-sm mb-6">
+        <p className="text-gray-600 leading-7 text-sm mb-6">
           Where is your bike located? Don&apos;t worry, the exact location of
           your bike will ONLY be forwarded when you have confirmed a rental
           request.
@@ -499,52 +624,87 @@ function LocationStep({
           </div>
         )}
 
-        {status === "success" && addresses?.length === 0 && (
-          <div className="p-4- pb-0">
-            <div className="py-6 text-center border rounded-md border-dashed">
-              <div className="mb-4 flex justify-center">
-                <div className="rounded-full bg-gray-100 p-3">
-                  <PlusCircleIcon className="h-5 w-5 text-gray-400" />
+        {!showForm && (
+          <>
+            {status === "success" && addresses?.length === 0 && (
+              <div className="p-4- pb-0">
+                <div className="py-6 text-center border rounded-md border-dashed">
+                  <div className="mb-4 flex justify-center">
+                    <div className="rounded-full bg-gray-100 p-3">
+                      <PlusCircleIcon className="h-5 w-5 text-gray-400" />
+                    </div>
+                  </div>
+                  <h3 className="mb-1 text-sm font-medium">No address added</h3>
+                  <p className="mb-4 text-[15px] text-gray-500">
+                    You don't have any address added yet.
+                  </p>
+
+                  <Button
+                    onClick={() => setShowForm(true)}
+                    size="sm"
+                    className="bg-green-800 hover:bg-green-700"
+                  >
+                    Add Address
+                  </Button>
                 </div>
               </div>
-              <h3 className="mb-1 text-sm font-medium">No address added</h3>
-              <p className="mb-4 text-[15px] text-gray-500">
-                You don't have any address added yet.
-              </p>
+            )}
 
-              <Button size="sm" className="bg-green-800 hover:bg-green-700">
-                Add Address
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {status === "success" && (
-          <RadioGroup
-            value={form.watch("addressId")}
-            onValueChange={(value) => form.setValue("addressId", value)}
-            className="space-y-4"
-          >
-            {addresses?.map((address: any) => (
-              <div
-                key={`${address.id}-${address.value}`}
-                className="border-input has-data-[state=checked]:border-primary/50 relative flex flex-col items-start gap-4 rounded-md border p-3 shadow-xs outline-none"
+            {status === "success" && (
+              <RadioGroup
+                value={form.watch("addressId")}
+                onValueChange={(value) => form.setValue("addressId", value)}
+                className="space-y-0"
               >
-                <div className="flex items-center gap-2">
-                  <RadioGroupItem
-                    className="after:absolute after:inset-0"
-                    value={address.id}
-                    id={address.id}
-                  />
-                  <label className="text-sm font-medium" htmlFor={address.id}>
-                    {address.street}, {address.city}
-                  </label>
-                </div>
-              </div>
-            ))}
-          </RadioGroup>
+                {addresses?.map((address: any) => (
+                  <div
+                    key={`${address.id}-${address.value}`}
+                    className="border-input has-data-[state=checked]:border-primary/50 relative flex flex-col items-start gap-4 rounded-md border p-3 shadow-xs outline-none"
+                  >
+                    <div className="flex items-center gap-2">
+                      <RadioGroupItem
+                        className="after:absolute after:inset-0"
+                        value={address.id}
+                        id={address.id}
+                      />
+                      <label
+                        className="text-sm font-medium"
+                        htmlFor={address.id}
+                      >
+                        {address.street}, {address.city}
+                      </label>
+                    </div>
+                  </div>
+                ))}
+                <Button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    setShowForm(true);
+                  }}
+                  size="sm"
+                  variant="outline"
+                  className="!mt-3"
+                >
+                  <PlusCircleIcon className="mr-2 h-4 w-4" />
+                  Add Address
+                </Button>
+              </RadioGroup>
+            )}
+          </>
         )}
       </div>
+
+      {showForm && (
+        <AddressForm
+          onComplete={() => {
+            setShowForm(false);
+            setEditingAddress(null);
+            refetch();
+          }}
+          editingAddress={editingAddress}
+          handleCancel={handleCancel}
+        />
+      )}
 
       <div className="flex justify-between">
         <Button type="button" variant="outline" onClick={onBack}>
@@ -606,7 +766,7 @@ function PicturesStep({
 }) {
   const [isDragging, setIsDragging] = useState(false);
 
-  const images: ImageData[] = form.watch("images") || [];
+  const images: any[] = form.watch("images") || [];
 
   const handleFileSelect = async (
     event: React.ChangeEvent<HTMLInputElement>
@@ -736,21 +896,12 @@ function PicturesStep({
   };
 
   const handleNext = () => {
-    // Check if all images are uploaded successfully
-    const allUploaded = images.every((img) => img.uploadStatus === "success");
     const hasUploadingImages = images.some(
       (img) => img.uploadStatus === "uploading"
     );
 
     if (hasUploadingImages) {
       toast.warning("Please wait for all images to finish uploading");
-      return;
-    }
-
-    if (!allUploaded) {
-      toast.error(
-        "Some images failed to upload. Please retry or remove failed images."
-      );
       return;
     }
 
@@ -764,10 +915,7 @@ function PicturesStep({
     onNext();
   };
 
-  const canProceed =
-    images.length > 0 &&
-    images.every((img) => img.uploadStatus === "success") &&
-    !images.some((img) => img.uploadStatus === "uploading");
+  const error = form.formState?.errors?.images;
 
   return (
     <div className="space-y-6">
@@ -789,10 +937,11 @@ function PicturesStep({
         </p>
 
         <div
-          className={`
-            border-2 border-dashed rounded-lg p-8 text-center
-            ${isDragging ? "border-primary bg-primary/10" : "border-gray-300"}
-          `}
+          className={cn(
+            `border-2 border-dashed bg-slate-50 rounded-lg p-8 text-center`,
+            isDragging ? "border-primary bg-primary/10" : "border-gray-300",
+            error && "border-red-500 bg-red-50"
+          )}
           onDragOver={(e) => {
             e.preventDefault();
             setIsDragging(true);
@@ -809,12 +958,15 @@ function PicturesStep({
             onChange={handleFileSelect}
           />
           <label htmlFor="file-upload" className="cursor-pointer">
-            <Button variant="secondary" className="mb-2">
+            <Button variant="secondary" className="mb-2 bg-white">
               Select images
             </Button>
             <p className="text-sm mt-3 capitalize text-gray-600">
               or drag and drop your images here
             </p>
+            {error && (
+              <p className="text-sm mt-3 text-red-500">* {error.message}</p>
+            )}
           </label>
         </div>
 
@@ -824,9 +976,9 @@ function PicturesStep({
               <div key={index} className="relative border rounded-lg p-2">
                 <div className="relative">
                   <img
-                    src={image.previewUrl}
+                    src={image.previewUrl || getFileUrl(image.path)}
                     alt={`Bike image ${index + 1}`}
-                    className="w-full aspect-[3/2] object-cover rounded"
+                    className="w-full border aspect-[3/2] object-cover rounded"
                   />
                   {image.uploadStatus === "uploading" && (
                     <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
@@ -854,7 +1006,7 @@ function PicturesStep({
                     onValueChange={() => setMainImage(index)}
                     className="py-2"
                   >
-                    <div className="flex items-center space-x-2">
+                    <div className="flex items-center text-sm space-x-2">
                       <RadioGroupItem
                         value={index.toString()}
                         id={`main-${index}`}
@@ -899,11 +1051,7 @@ function PicturesStep({
         <Button type="button" variant="outline" onClick={onBack}>
           Back
         </Button>
-        <Button
-          type="button"
-          onClick={handleNext}
-          disabled={!canProceed || form.formState.errors.images}
-        >
+        <Button type="button" onClick={handleNext}>
           Next
         </Button>
       </div>
@@ -950,7 +1098,7 @@ function PricingStep({
                     min="0"
                     step="0.01"
                     {...field}
-                    onChange={(e) => field.onChange(parseFloat(e.target.value))}
+                    onChange={(e) => field.onChange(e.target.value)}
                   />
                 </FormControl>
                 <FormMessage />
@@ -984,7 +1132,7 @@ function PricingStep({
             <FormField
               control={form.control}
               name="weeklyDiscount"
-              render={({ field }) => (
+              render={({ field, fieldState }) => (
                 <FormItem>
                   <FormLabel>Weekly Discount (%)</FormLabel>
                   <FormControl>
@@ -993,9 +1141,7 @@ function PricingStep({
                       min="0"
                       max="100"
                       {...field}
-                      onChange={(e) =>
-                        field.onChange(parseFloat(e.target.value))
-                      }
+                      error={fieldState.error?.message}
                     />
                   </FormControl>
                   <FormMessage />

@@ -5,6 +5,8 @@ import { RefreshToken } from "./entities/RefreshToken";
 import { Setting } from "./entities/Setting";
 import { UserAddress } from "./entities/UserAddress";
 import { Bike } from "./entities/Bike";
+import { Review } from "./entities/Review";
+import { Booking } from "./entities/Booking";
 dotenv.config();
 
 export const MIGRATION_FILES =
@@ -15,7 +17,7 @@ export const MIGRATION_FILES =
 export const AppDataSource = new DataSource({
   type: "postgres",
   url: process.env.DATABASE_URL,
-  entities: [User, RefreshToken, Setting, UserAddress, Bike],
+  entities: [User, RefreshToken, Setting, UserAddress, Bike, Review, Booking],
   migrations: MIGRATION_FILES,
   migrationsRun: false,
   logging: false,

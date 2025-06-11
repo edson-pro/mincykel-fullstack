@@ -78,6 +78,9 @@ export class RentController {
         success_url: "http://localhost:3000",
         line_items: lineItems,
         mode: "payment",
+        metadata: {
+          bookingId: request.body.bookingId,
+        },
       });
 
       response.json({ url: session.url });

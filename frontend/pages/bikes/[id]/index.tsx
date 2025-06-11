@@ -4,7 +4,10 @@ import {
   Award,
   Bike,
   CalendarIcon,
+  CircleAlert,
+  Loader2,
   Lock,
+  Trash,
   Wrench,
 } from "lucide-react";
 import { Star, Zap } from "lucide-react";
@@ -40,6 +43,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Label } from "@/components/ui/label";
 import { differenceInCalendarDays, format } from "date-fns";
 import { DateRange } from "react-day-picker";
+import accessories from "@/data/accessories";
 
 export const getServerSideProps = (async (context) => {
   const { id } = context.params;
@@ -53,8 +57,17 @@ export const getServerSideProps = (async (context) => {
   return { props: { bike } };
 }) satisfies GetServerSideProps<{ bike: any }>;
 
-export default function BikeDetails({ bike }: { bike: any }) {
+export default function BikeDetails({ bike: bikeData }: { bike: any }) {
   const [activeImage, setActiveImage] = useState(0);
+
+  const { data: bike, refetch } = useQuery({
+    queryKey: ["bike", bikeData.id],
+    queryFn: async () => {
+      const { data } = await api.get(`/bikes/${bikeData.id}`);
+      return data?.data;
+    },
+    initialData: bikeData,
+  });
 
   return (
     <div className="max-w-6xl mx-auto px-4 py-8">
@@ -75,7 +88,7 @@ export default function BikeDetails({ bike }: { bike: any }) {
                 <img
                   src={getFileUrl(image.path)}
                   alt={bike?.brand + " " + bike?.model}
-                  className="w-full rounded-lg object-cover h-[100px]"
+                  className="w-full border rounded-lg object-cover h-[100px]"
                 />
               </a>
             ))}
@@ -85,16 +98,16 @@ export default function BikeDetails({ bike }: { bike: any }) {
             brand={bike?.brand}
             model={bike?.model}
             location={bike?.address?.street + ", " + bike?.address?.city}
-            rating={bike?.rating || 4.5}
-            reviews={bike?.reviews || 120}
+            rating={(bike?.averageRating || 0).toFixed(1) || 0.0}
+            reviews={bike?.reviews?.length || 0}
             instantBooking={bike?.directBooking}
           />
 
-          <div>
+          <div style={{ whiteSpace: "pre-wrap" }} className="text-sm leading-6">
             <p>{bike?.description}</p>
           </div>
 
-          <BikeFeatures />
+          <BikeFeatures accessories={bike?.accessories || []} />
 
           <OwnerProfile
             name={bike?.owner?.name}
@@ -110,6 +123,8 @@ export default function BikeDetails({ bike }: { bike: any }) {
             longitude={bike?.address?.longitude}
             address={bike?.address?.street + ", " + bike?.address?.city}
           />
+
+          <Reviews bike={bike} refetch={() => refetch()} />
         </div>
 
         <div className="sticky h-[650px] col-span-2 top-20">
@@ -120,24 +135,31 @@ export default function BikeDetails({ bike }: { bike: any }) {
   );
 }
 
-interface BikeFeatureProps {
-  icon: React.ReactNode;
-  label: string;
-}
-
-function BikeFeature({ icon, label }: BikeFeatureProps) {
+function BikeFeature({ Icon, label }: any) {
   return (
     <div className="flex items-center gap-2 px-4 py-2 bg-primary/20 text-primary rounded-full text-sm">
-      {icon}
+      <Icon size={18} />
       <span>{label}</span>
     </div>
   );
 }
-function BikeFeatures() {
+function BikeFeatures({
+  accessories: bikeAccessories,
+}: {
+  accessories: string[];
+}) {
   return (
     <div className="flex mb-6 gap-3 mt-6">
-      <BikeFeature icon={<Lock className="h-4 w-4" />} label="Lock" />
-      <BikeFeature icon={<Wrench className="h-4 w-4" />} label="Repair Kit" />
+      {bikeAccessories.map((accessory) => {
+        const accessoryInfo = accessories.find((a) => a.name === accessory);
+        return (
+          <BikeFeature
+            key={accessory}
+            Icon={accessoryInfo?.icon}
+            label={accessoryInfo?.name}
+          />
+        );
+      })}
     </div>
   );
 }
@@ -158,6 +180,7 @@ function BikeHeader({
   reviews,
   instantBooking,
 }: BikeHeaderProps) {
+  const router = useRouter();
   return (
     <div className="mb-6">
       <h1 className="sm:text-2xl text-xl capitalize font-bold mb-2">
@@ -168,7 +191,12 @@ function BikeHeader({
         <div className="flex items-center gap-1">
           <Star className="h-4 w-4 fill-primary text-primary" />
           <span className="font-semibold">{rating}</span>
-          <span className="text-gray-600 underline">{reviews} Reviews</span>
+          <a
+            onClick={() => router.push(`#reviews`)}
+            className="text-gray-600 cursor-pointer underline"
+          >
+            {reviews} Review{reviews === 1 ? "" : "s"}
+          </a>
         </div>
         {instantBooking && (
           <div className="flex items-center gap-1 text-prfill-primary">
@@ -184,39 +212,58 @@ function BikeHeader({
 function BookingForm({ bike }: any) {
   const [pickupTime, setPickupTime] = useState("14:00");
   const [returnTime, setReturnTime] = useState("12:00");
-  const [bikeSize, setBikeSize] = useState(bike?.size);
-  const [quantity, setQuantity] = useState(1);
-
-  const router = useRouter();
 
   const id = useId();
   const [date, setDate] = useState<DateRange | undefined>();
   const pricePerDay = bike?.dailyRate;
-  const pricePerWeek = bike?.weeklyRate;
+  const pricePerWeek = bike?.dailyRate * 7;
 
   const days =
     date?.from && date?.to ? differenceInCalendarDays(date.to, date.from) : 0;
 
   const dayPrice = days * pricePerDay;
-  const weekPrice = days * pricePerWeek;
   const dailyDiscount = bike?.dailyDiscount || 0;
-  const weeklyDiscount = bike?.weeklyDiscount || 0;
 
   const dailyDiscountRate = pricePerDay * (dailyDiscount / 100);
-  const weeklyDiscountRate = pricePerWeek * (weeklyDiscount / 100);
 
-  const totalDiscount = dailyDiscountRate * days + weeklyDiscountRate * days;
+  const totalDiscount = dailyDiscountRate * days;
 
-  const total = dayPrice + weekPrice - totalDiscount;
+  const total = dayPrice - totalDiscount;
+
+  const requestPaymentCheckoutMutation = useMutation({
+    mutationFn: async () => {
+      const { data } = await api.post("/booking/create", {
+        bikeId: bike.id,
+        totalAmount: total,
+        startTime: date?.from,
+        endTime: date?.to,
+        discountAmount: dailyDiscount,
+        days,
+        pickupTime,
+        returnTime,
+      });
+
+      return data;
+    },
+    onSuccess: (data) => {
+      window.location.href = data.url;
+    },
+    onError: (error: any) => {
+      toast.error(error?.response?.data?.message || "Something went wrong");
+      setBookingError(error?.response?.data?.message || "Something went wrong");
+    },
+  });
+
+  const [bookingError, setBookingError] = useState<string | null>(null);
 
   return (
-    <div className="bg-white p-4 rounded-lg border">
+    <div className="bg-white p-4 pt-3 rounded-lg border">
       <div className="flex justify-between items-start mb-6">
         <div>
-          <div className="text-2xl font-bold text-primary">
-            {pricePerDay}$ / day
+          <div className="text-xl font-bold text-primary">
+            {parseFloat(pricePerDay).toFixed(1)}$ / day
           </div>
-          <div className="text-gray-600">{pricePerWeek}$ / week</div>
+          <div className="text-gray-600">${pricePerWeek.toFixed(1)} / week</div>
         </div>
         <div className="flex gap-3">
           <ShareComponent />
@@ -272,45 +319,22 @@ function BookingForm({ bike }: any) {
             <label className="block text-sm font-medium mb-1">
               Pickup time
             </label>
-            <input
+            <Input
               type="time"
               value={pickupTime}
               onChange={(e) => setPickupTime(e.target.value)}
-              className="w-full p-2 border rounded-lg"
+              className="w-full py-2 px-4 border rounded-lg"
             />
           </div>
           <div>
             <label className="block text-sm font-medium mb-1">
               Return time
             </label>
-            <input
+            <Input
               type="time"
               value={returnTime}
               onChange={(e) => setReturnTime(e.target.value)}
-              className="w-full p-2 border rounded-lg"
-            />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Bike size</label>
-            <input
-              type="text"
-              value={bikeSize}
-              disabled
-              onChange={(e) => setBikeSize(e.target.value)}
-              className="w-full p-2 border rounded-lg"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1">Quantity</label>
-            <input
-              type="number"
-              value={quantity}
-              onChange={(e) => setQuantity(Number(e.target.value))}
-              min="1"
-              className="w-full p-2 border rounded-lg"
+              className="w-full py-2 px-4 border rounded-lg"
             />
           </div>
         </div>
@@ -326,31 +350,35 @@ function BookingForm({ bike }: any) {
             <span>Discount {days} day(s)</span>
             <span>$ {totalDiscount || 0} </span>
           </div>
-          <div className="flex justify-between">
-            <span>Service fee</span>
-            <span>$ 0,00 </span>
-          </div>
-          <div className="flex justify-between font-bold text-lg pt-2 border-t">
+          <div className="flex justify-between font-semibold text-base pt-2 border-t">
             <span>Total</span>
             <span>{total || 0} $</span>
           </div>
-          <div className="text-sm text-gray-500 text-right">incl. VAT</div>
         </div>
 
+        {bookingError && (
+          <div className="rounded-md border border-red-500/50 px-4 py-3 text-red-600">
+            <p className="text-sm">
+              <CircleAlert
+                className="me-3 -mt-0.5 inline-flex opacity-60"
+                size={16}
+                aria-hidden="true"
+              />
+              {bookingError}
+            </p>
+          </div>
+        )}
+
         <Button
-          onClick={() => {
-            router.push(
-              `/checkout?bike=${
-                bike?.id
-              }&quantity=${quantity}&startDate=${format(
-                date.from,
-                "yyyy-MM-dd"
-              )}&endDate=${format(date.to, "yyyy-MM-dd")}`
-            );
-          }}
-          disabled={!date?.from || !date?.to}
+          onClick={() => requestPaymentCheckoutMutation.mutate()}
+          disabled={
+            requestPaymentCheckoutMutation.isLoading || !date?.from || !date?.to
+          }
           className="w-full"
         >
+          {requestPaymentCheckoutMutation.isLoading && (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          )}
           Book Bike Now
         </Button>
       </div>
@@ -440,12 +468,12 @@ function OwnerProfile({
           </div>
         </div>
       </div>
-      <div className="flex items-center gap-2 text-sm text-gray-600">
+      {/* <div className="flex items-center gap-2 text-sm text-gray-600">
         <Button>
           View Profile
           <ArrowRight className="ml-2" size={16} />
         </Button>
-      </div>
+      </div> */}
     </div>
   );
 }
@@ -556,5 +584,421 @@ function ShareComponent() {
         </PopoverContent>
       </Popover>
     </div>
+  );
+}
+
+import { User } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+
+function Reviews({ bike, refetch }: { bike: any; refetch: () => void }) {
+  const [open, setOpen] = useState(false);
+  const renderStars = (rating: number) => {
+    return Array.from({ length: 5 }, (_, i) => (
+      <Star
+        key={i}
+        className={`w-4 h-4 ${
+          i < rating
+            ? "fill-[#CCDB3A] text-[#CCDB3A]"
+            : "fill-gray-200 text-gray-200"
+        }`}
+      />
+    ));
+  };
+
+  const { user } = useAuth();
+
+  const router = useRouter();
+
+  return (
+    <>
+      <div id="reviews" className="max-w-4xl mx-auto- py-6 mt-3 bg-white">
+        <h2 className="text-xl font-semibold text-gray-900 mb-6">
+          Bike Reviews
+        </h2>
+
+        <div className="grid grid-cols-6 gap-5">
+          <div className="col-span-2">
+            <div className="flex items-center gap-2 mb-2">
+              {renderStars(bike?.averageRating || 0)}
+              <span className="text-xl font-semibold text-gray-900">
+                {bike?.averageRating?.toFixed(1)}
+              </span>
+            </div>
+            <div className="text-sm text-gray-600 mb-4">
+              <span className="text-slate-500">
+                {bike?.reviews?.length} People reviewed
+              </span>
+            </div>
+
+            <div className="mb-6">
+              <h3 className="font-semibold text-[#124A01] mb-2">
+                How the rating works
+              </h3>
+              <p className="text-sm text-slate-500 leading-relaxed">
+                Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do
+                eiusmod tempor incididunt ut labore.
+              </p>
+            </div>
+
+            <div>
+              <h3 className="font-semibold text-[#124A01] mb-3">
+                Review this product
+              </h3>
+
+              <Button
+                onClick={() => {
+                  if (user) {
+                    setOpen(true);
+                  } else {
+                    router.push(`/login?redirect=${router.asPath}`);
+                  }
+                }}
+                className="bg-[#124A01] w-full hover:bg-[#124A01] text-white px-6 py-2"
+              >
+                {user ? "Write a review" : "Sign in to write a review"}
+              </Button>
+            </div>
+          </div>
+
+          {/* Individual Reviews */}
+          <div className="col-span-4 space-y-6">
+            {bike?.reviews
+              ?.sort(
+                (a: any, b: any) =>
+                  new Date(b.createdAt).getTime() -
+                  new Date(a.createdAt).getTime()
+              )
+              ?.map((review: any) => (
+                <Card className="border-0 shadow-none">
+                  <CardContent className="p-0">
+                    <div className="">
+                      <div className="flex items-center gap-2 mb-3">
+                        <Avatar className="w-10 h-10 bg-gray-200">
+                          <AvatarFallback className="bg-gray-200 text-gray-600">
+                            <User className="w-4 h-4" />
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex fc items-center gap-3 mb-1">
+                          <span className="font-semibold text-sm text-[#124A01]">
+                            {review?.user?.name}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex-1">
+                        <div className="flex items-center gap-1">
+                          {renderStars(review?.rating)}
+                          <span className="font-semibold text-[#124A01] ml-1">
+                            {review?.rating?.toFixed(1)}
+                          </span>
+                        </div>
+                        <p className="text-sm text-slate-500 mb-3 mt-3">
+                          Reviewed on{" "}
+                          <span className="font-medium text-[#124A01]">
+                            {format(review?.createdAt, "MMMM dd, yyyy")}
+                          </span>
+                        </p>
+
+                        <p className="text-sm text-gray-600 leading-relaxed mb-4">
+                          {review?.content}
+                        </p>
+
+                        {review?.photos?.length > 0 && (
+                          <div className="flex items-center justify-between">
+                            <span className="text-sm font-medium text-gray-900">
+                              Review photos
+                            </span>
+                          </div>
+                        )}
+
+                        {review?.photos?.length > 0 && (
+                          <div className="flex gap-2 mt-2">
+                            {review?.photos?.map((photo, i) => (
+                              <img
+                                key={i}
+                                src={getFileUrl(photo?.path)}
+                                alt="Review photo"
+                                className="w-12 h-12 object-cover border rounded-lg overflow-hidden"
+                              />
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+          </div>
+        </div>
+      </div>
+      <ReviewDialog
+        refetch={refetch}
+        open={open}
+        onOpenChange={setOpen}
+        bike={bike}
+      />
+    </>
+  );
+}
+
+import { X, Paperclip } from "lucide-react";
+
+import {
+  Dialog,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useAuth } from "@/context/auth.context";
+import { toast } from "sonner";
+import { api } from "@/lib/api";
+import { useMutation, useQuery } from "react-query";
+
+function ReviewDialog({
+  open,
+  onOpenChange,
+  bike,
+  refetch,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  bike: any;
+  refetch: () => void;
+}) {
+  const [rating, setRating] = useState(0);
+  const [hoveredRating, setHoveredRating] = useState(0);
+  const [reviewText, setReviewText] = useState("");
+  const [attachedPhotos, setAttachedPhotos] = useState<any[]>([]);
+
+  const maxCharacters = 500;
+
+  const handleStarClick = (starIndex: number) => {
+    setRating(starIndex + 1);
+  };
+
+  const handleStarHover = (starIndex: number) => {
+    setHoveredRating(starIndex + 1);
+  };
+
+  const handleStarLeave = () => {
+    setHoveredRating(0);
+  };
+
+  const renderStars = () => {
+    return Array.from({ length: 5 }, (_, i) => {
+      const isActive = i < (hoveredRating || rating);
+      return (
+        <button
+          key={i}
+          type="button"
+          onClick={() => handleStarClick(i)}
+          onMouseEnter={() => handleStarHover(i)}
+          onMouseLeave={handleStarLeave}
+          className="focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 rounded"
+        >
+          <Star
+            className={`w-6 h-6 transition-colors ${
+              isActive
+                ? "fill-yellow-400 text-yellow-400"
+                : "fill-gray-200 text-gray-200"
+            }`}
+          />
+        </button>
+      );
+    });
+  };
+
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const handleSubmit = async () => {
+    try {
+      setIsSubmitting(true);
+
+      await api.post(`/bikes/${bike?.id}/reviews`, {
+        rating,
+        content: reviewText,
+        photos: attachedPhotos,
+      });
+      // reset
+      setRating(0);
+      setReviewText("");
+      setAttachedPhotos([]);
+
+      toast.success("Review created successfully");
+      onOpenChange(false);
+      refetch();
+    } catch (error) {
+      toast.error(error.response?.data?.message || "Failed to create review");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const uploadMutation = useMutation({
+    mutationFn: async (data: any) => {
+      // Step 1: Request a signed URL from your backend
+      const {
+        data: { signedUrl, key },
+      } = await api.post("/sign", {
+        fileName: data.file.name,
+        fileType: data.file.type,
+        fileSize: data.file.size,
+      });
+
+      // Step 2: Upload the file directly to S3 using the signed URL
+      await axios.put(signedUrl, data.file, {
+        headers: {
+          "Content-Type": data.file.type,
+        },
+      });
+
+      return key;
+    },
+    onSuccess: (data) => {
+      setAttachedPhotos((prev) => [...prev, { path: data }]);
+    },
+    onError: (error: any) => {
+      toast.error(error.response?.data?.message || "Failed to upload file");
+    },
+  });
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      uploadMutation.mutate({ file });
+    }
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-3xl gap-0 mx-auto p-0">
+        <DialogHeader className="pb-3 pt-2 px-4 border-b space-y-1">
+          <DialogTitle className="text-base font-semibold text-gray-900">
+            Bike Review
+          </DialogTitle>
+          <p className="text-sm text-gray-600 leading-relaxed">
+            Lorem ipsum dolor sit amet, consectetur.
+          </p>
+        </DialogHeader>
+
+        <ScrollArea className="h-[500px]">
+          <div className="space-y-6 py-3 px-4">
+            {/* Description */}
+
+            {/* Rating Section */}
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-1">
+                Rate this Product
+              </h3>
+              <p className="text-sm text-gray-600 mb-3">
+                Tell others what you think
+              </p>
+              <div className="flex gap-1">{renderStars()}</div>
+            </div>
+
+            {/* Review Text */}
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-3">
+                Write a review
+              </h3>
+              <div className="relative">
+                <Textarea
+                  placeholder="Describe how you feel about the product (Optional)"
+                  value={reviewText}
+                  onChange={(e) => setReviewText(e.target.value)}
+                  maxLength={maxCharacters}
+                  className="min-h-[120px] resize-none bg-gray-50 border-gray-200 focus:bg-white"
+                />
+                <div className="absolute bottom-3 right-3 text-xs text-gray-500">
+                  {reviewText.length}/{maxCharacters}
+                </div>
+              </div>
+            </div>
+
+            {/* Attach Photos */}
+            <div>
+              <h3 className="font-semibold text-gray-900 mb-1">
+                Attach Photos
+              </h3>
+              <p className="text-sm text-gray-600 mb-3">
+                Attach product photos, up to 6 photos are allowed.
+              </p>
+
+              <div className="grid grid-cols-5 gap-2 mb-0">
+                {attachedPhotos.map((photo, index) => (
+                  <div key={index} className="relative">
+                    <div className="w-full aspect-square rounded-lg overflow-hidden bg-gray-100 border border-gray-200">
+                      <img
+                        src={getFileUrl(photo?.path) || "/placeholder.svg"}
+                        alt={`Attached photo ${index + 1}`}
+                        width={60}
+                        height={60}
+                        className="w-full h-full object-cover"
+                      />
+                    </div>
+                    {index === attachedPhotos.length - 1 && (
+                      <div className="absolute inset-0 bg-black/20 bg-opacity-20 rounded-lg flex items-center justify-center">
+                        <a
+                          className="cursor-pointer"
+                          onClick={() => {
+                            setAttachedPhotos((prev) =>
+                              prev.filter((_, i) => i !== index)
+                            );
+                          }}
+                        >
+                          <Trash className="w-6 h-6 text-white" />
+                        </a>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={uploadMutation?.isLoading}
+                className="text-slate-700 mt-3 border-slate-300 hover:bg-slate-50"
+                onClick={() => inputRef.current?.click()}
+              >
+                {uploadMutation?.isLoading ? (
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                ) : (
+                  <Paperclip className="w-4 h-4 mr-2" />
+                )}
+                Attach
+              </Button>
+              <input
+                type="file"
+                ref={inputRef}
+                className="hidden"
+                onChange={(e) => {
+                  handleFileChange(e);
+                }}
+              />
+            </div>
+          </div>
+        </ScrollArea>
+        <DialogFooter className="px-3 py-3 border-t">
+          {/* Submit Button */}
+          <Button
+            onClick={handleSubmit}
+            disabled={isSubmitting || !rating || !reviewText}
+            className="w-full bg-slate-700 hover:bg-slate-800 text-white py-3"
+          >
+            {isSubmitting ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : null}
+            Submit Your Review
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }

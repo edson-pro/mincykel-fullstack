@@ -5,9 +5,11 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   ManyToOne,
+  OneToMany,
 } from "typeorm";
 import { UserAddress } from "./UserAddress";
 import { User } from "./User";
+import { Review } from "./Review";
 
 export enum BikeStatus {
   AVAILABLE = "available",
@@ -33,6 +35,14 @@ export class Bike {
 
   @Column({ type: "varchar", length: 100 })
   category: string;
+
+  // subcategory
+  @Column({ type: "varchar", length: 100, nullable: true })
+  subCategory: string;
+
+  // accessories
+  @Column({ type: "jsonb", nullable: true })
+  accessories: string[];
 
   @Column({ type: "jsonb", nullable: true })
   images: string[];
@@ -67,6 +77,10 @@ export class Bike {
   // directBooking
   @Column({ type: "boolean", default: false })
   directBooking: boolean;
+
+  // reviews
+  @OneToMany(() => Review, (review) => review.bike)
+  reviews: Review[];
 
   // requireDeposit
   @Column({ type: "boolean", default: false })

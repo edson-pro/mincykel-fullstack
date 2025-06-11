@@ -17,6 +17,8 @@ router.get("/:id", bikeController.getOne);
 // Protected routes (require authentication)
 router.use(authorization);
 
+router.route("/:id/reviews").post(authorization, bikeController.createReview);
+
 router.post("/", bikeController.create);
 router.put("/:id", bikeController.update);
 router.delete("/:id", bikeController.delete);

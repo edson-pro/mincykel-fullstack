@@ -34,6 +34,7 @@ import { Skeleton } from "../ui/skeleton";
 import LogoutModal from "../modals/LogoutModal";
 import useModalState from "@/hooks/useModalState";
 import Autocomplete from "react-google-autocomplete";
+import getFileUrl from "@/lib/getFileUrl";
 
 export default function Navigation() {
   const pathname = usePathname();
@@ -126,7 +127,7 @@ export default function Navigation() {
 function NavLinks() {
   const links = [
     { href: "/", label: "Home" },
-    { href: "/search", label: "Find a bike" },
+    // { href: "/search", label: "Find a bike" },
     { href: "/how-it-works", label: "How it works" },
   ];
 
@@ -223,7 +224,10 @@ function Profile() {
         <DropdownMenuTrigger asChild>
           <Button variant="ghost" className="h-auto p-0 hover:bg-transparent">
             <Avatar>
-              <AvatarImage src={user?.profileUrl} alt={user?.name} />
+              <AvatarImage
+                src={getFileUrl(user?.profileUrl)}
+                alt={user?.name}
+              />
               <AvatarFallback>{user?.name?.slice(0, 2)}</AvatarFallback>
             </Avatar>
             <ChevronDown
@@ -287,7 +291,7 @@ function Profile() {
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
           <DropdownMenuGroup>
-            <DropdownMenuItem>
+            {/* <DropdownMenuItem>
               <User
                 size={16}
                 strokeWidth={2}
@@ -295,7 +299,7 @@ function Profile() {
                 aria-hidden="true"
               />
               <span>Profile</span>
-            </DropdownMenuItem>
+            </DropdownMenuItem> */}
             <DropdownMenuItem
               onClick={() => {
                 router.push("/settings");
@@ -307,7 +311,7 @@ function Profile() {
                 className="opacity-60"
                 aria-hidden="true"
               />
-              <span>Settings</span>
+              <span>Account Settings</span>
             </DropdownMenuItem>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />

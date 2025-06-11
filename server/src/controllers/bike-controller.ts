@@ -1,14 +1,6 @@
 import { Request, Response } from "express";
 import { AppDataSource } from "../data-source";
-import {
-  Repository,
-  In,
-  Like,
-  MoreThan,
-  IsNull,
-  LessThanOrEqual,
-  Between,
-} from "typeorm";
+import { In, Repository } from "typeorm";
 import { QueryParams } from "../types/QueryParams";
 import { QueryBuilder } from "../utils/QueryBuilder";
 import { asyncHandler } from "../utils/async-handler";
@@ -17,6 +9,8 @@ import { Bike } from "../entities/Bike";
 import { UserAddress } from "../entities/UserAddress";
 import { User } from "../entities/User";
 import { BikeStatus } from "../entities/Bike";
+import { Review } from "../entities/Review";
+import { Booking, BookingStatus } from "../entities/Booking";
 
 export class BikeController {
   private repository: Repository<Bike> = AppDataSource.getRepository(Bike);
@@ -63,7 +57,7 @@ export class BikeController {
     return R * c; // Distance in kilometers
   }
 
-  private format = (data: Bike) => {
+  private format = (data: any) => {
     return {
       ...data,
       owner: {
@@ -71,6 +65,7 @@ export class BikeController {
         name: data.owner?.name,
         email: data.owner?.email,
         profileUrl: data.owner?.profileUrl,
+        createdAt: data?.owner?.createdAt,
       },
     };
   };
@@ -90,6 +85,8 @@ export class BikeController {
       monthlyDiscount,
       status,
       directBooking,
+      subCategory,
+      accessories,
     } = req.body;
 
     const address = await this.addressRepository.findOneBy({ id: addressId });
@@ -112,6 +109,8 @@ export class BikeController {
     bike.monthlyDiscount = monthlyDiscount || null;
     bike.status = status || BikeStatus.AVAILABLE;
     bike.directBooking = directBooking || false;
+    bike.subCategory = subCategory || null;
+    bike.accessories = accessories || null;
 
     await this.repository.save(bike);
 
@@ -152,16 +151,20 @@ export class BikeController {
 
     const bike = await this.repository.findOne({
       where: { id: Number(id) },
-      relations: ["owner", "address"],
+      relations: ["owner", "address", "reviews", "reviews.user"],
     });
 
     if (!bike) {
       throw new NotFoundError("Bike not found");
     }
 
+    const averageRating: number =
+      bike?.reviews.reduce((total, review) => total + review.rating, 0) /
+      bike?.reviews.length;
+
     return res.json({
       status: "success",
-      data: this.format(bike),
+      data: this.format({ ...bike, averageRating }),
     });
   });
 
@@ -195,6 +198,8 @@ export class BikeController {
     if (updates.status) bike.status = updates.status;
     if (updates.directBooking !== undefined)
       bike.directBooking = updates.directBooking;
+    if (updates.subCategory) bike.subCategory = updates.subCategory;
+    if (updates.accessories) bike.accessories = updates.accessories;
 
     // Update relationships if needed
     if (updates.addressId) {
@@ -326,16 +331,22 @@ export class BikeController {
   });
 
   getRecentBooked = asyncHandler(async (req: Request, res: Response) => {
-    const bikes = await this.repository.find({
-      where: { status: BikeStatus.AVAILABLE },
-      order: { id: "DESC" },
+    const recentBooked = await AppDataSource.getRepository(Booking).find({
+      where: {
+        status: In([
+          BookingStatus.CONFIRMED,
+          BookingStatus.ACTIVE,
+          BookingStatus.COMPLETED,
+        ]),
+      },
+      order: { createdAt: "DESC" },
       take: 10,
-      relations: ["address", "owner"],
+      relations: ["bike", "bike.address"],
     });
 
     return res.json({
       status: "success",
-      data: bikes,
+      data: recentBooked.map((e) => this.format(e.bike)),
     });
   });
 
@@ -372,6 +383,44 @@ export class BikeController {
     return res.json({
       status: "success",
       data: this.format(bike),
+    });
+  });
+
+  createReview = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { content, rating, photos } = req.body;
+    const userId = (req as any).user?.id;
+
+    const box = await this.repository.findOneBy({ id: Number(id) });
+
+    if (!box) {
+      throw new NotFoundError("Box not found");
+    }
+
+    // check if user has already reviewed this box
+    const existingReview = await AppDataSource.getRepository(Review).findOne({
+      where: {
+        bike: { id: Number(id) },
+        user: { id: userId },
+      },
+    });
+
+    if (existingReview) {
+      throw new BadRequestError("You have already reviewed this box");
+    }
+
+    const review = new Review();
+    review.bike = box;
+    review.user = { id: userId } as User;
+    review.content = content;
+    review.rating = rating;
+    review.photos = photos;
+
+    await AppDataSource.getRepository(Review).save(review);
+
+    return res.json({
+      status: "success",
+      message: "Review created successfully",
     });
   });
 }

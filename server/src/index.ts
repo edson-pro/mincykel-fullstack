@@ -10,7 +10,6 @@ import path from "path";
 import fs from "fs-extra";
 import multer from "multer";
 import { BadRequestError } from "./errors/http.errors";
-import rateLimit from "express-rate-limit";
 import logger from "./lib/logger";
 import usersRoutes from "./routes/users.routes";
 import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
@@ -21,7 +20,8 @@ import settingsRoutes from "./routes/settings.routes";
 import authRoutes from "./routes/auth.routes";
 import bikeRoutes from "./routes/bike.routes";
 import userAddressRoutes from "./routes/user-address.routes";
-import rentRoutes from "./routes/rent.routes";
+import bookingRoutes from "./routes/booking.routes";
+import { BookingController } from "./controllers/booking-controller";
 
 dotenv.config();
 
@@ -34,17 +34,15 @@ const delayMiddleware = (_: any, __: any, next: any) => {
 
 const app = express();
 
-// Basic rate limiter setup
-const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 10000, // Limit each IP to 100 requests per window
-  standardHeaders: true, // Return rate limit info in the `RateLimit-*` headers
-  legacyHeaders: false, // Disable the `X-RateLimit-*` headers
-  message: "Too many requests from this IP, please try again after 15 minutes",
-});
-
-// Apply the rate limiter to all requests
-app.use(limiter);
+app.use(
+  express.json({
+    verify: (req: any, res: any, buf: any, encoding: any) => {
+      if (buf && buf.length) {
+        req.rawBody = buf.toString(encoding || "utf8");
+      }
+    },
+  })
+);
 
 // Middleware to log all requests
 app.use((req, res, next) => {
@@ -107,7 +105,7 @@ app.use("/api/auth", authRoutes);
 app.use("/api/users", authorization, usersRoutes);
 app.use("/api/settings", authorization, settingsRoutes);
 app.use("/api/bikes", bikeRoutes);
-app.use("/api/rent", authorization, rentRoutes);
+app.use("/api/booking", bookingRoutes);
 app.use("/api/address", authorization, userAddressRoutes);
 
 // Single endpoint for file upload

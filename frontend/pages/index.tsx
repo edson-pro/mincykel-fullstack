@@ -142,7 +142,7 @@ function SearchBar() {
           }}
           className={cn(
             "bg-primary hover:bg-[#307448] sm:w-fit w-full text-white px-6 py-2 rounded-full cursor-pointer transition-colors",
-            !address?.formatted_address ? "opacity-50 cursor-not-allowed" : ""
+            !address?.formatted_address ? "opacity-50 pointer-events-none" : ""
           )}
         >
           Search
@@ -200,7 +200,7 @@ function FrequentlyBooked() {
 
 function RecentryBooked() {
   const { data = [], status } = useQuery({
-    queryKey: ["bikes"],
+    queryKey: ["recent-booked"],
     queryFn: () =>
       api.get("/bikes/recent-booked").then(({ data }) => data?.data),
   });
