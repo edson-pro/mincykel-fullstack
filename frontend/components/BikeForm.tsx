@@ -90,7 +90,7 @@ const picturesSchema = formSchema.pick({
 
 type FormValues = z.infer<typeof formSchema>;
 
-export default function BikeForm({ bike }: { bike: any }) {
+export default function BikeForm({ bike }: { bike?: any }) {
   const [currentStep, setCurrentStep] = useState<FormStep>("category");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
